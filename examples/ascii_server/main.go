@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	server, err := gomodbus.NewModbusRTUServer(logger, port, 91)
+	server, err := gomodbus.NewModbusASCIIServer(logger, port, 91)
 	if err != nil {
 		panic(err)
 	}
