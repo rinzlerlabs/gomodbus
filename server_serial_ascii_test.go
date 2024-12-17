@@ -36,15 +36,15 @@ func TestASCIIAcceptRequest(t *testing.T) {
 	data := &testPortData{
 		readData: []byte{0x3A, 0x30, 0x32, 0x30, 0x31, 0x30, 0x30, 0x32, 0x30, 0x30, 0x30, 0x30, 0x43, 0x44, 0x31, 0x0D, 0x0A},
 	}
-	s, e := newModbusASCIIServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
+	s, e := newModbusASCIIServerWithHandler(logger, data, 0x02, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 	assert.NoError(t, e)
-	adu, err := s.acceptRequest()
+	adu, err := s.acceptAndValidateRequest()
 	assert.NoError(t, err)
 	assert.NotNil(t, adu)
 	assert.Equal(t, uint16(0x02), adu.Address())
-	assert.Equal(t, byte(0x01), adu.PDU().Function)
-	assert.Equal(t, []byte{0x00, 0x20, 0x00, 0xC}, adu.PDU().Data)
-	assert.Equal(t, []byte{0xD1}, adu.Checksum())
+	assert.Equal(t, byte(0x01), adu.Request().PDU().Function)
+	assert.Equal(t, []byte{0x00, 0x20, 0x00, 0xC}, adu.Request().PDU().Data)
+	assert.Equal(t, []byte{0xD1}, adu.Request().Checksum())
 }
 
 func TestASCIIReadCoils(t *testing.T) {
@@ -79,9 +79,9 @@ func TestASCIIReadCoils(t *testing.T) {
 			readError: ErrInvalidChecksum,
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      ":0501000A000DE3\r\n",
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   ":0501000A000DE3\r\n",
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -94,7 +94,7 @@ func TestASCIIReadCoils(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).Coils = tt.coils
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -140,9 +140,9 @@ func TestASCIIReadDiscreteInputs(t *testing.T) {
 			readError: ErrInvalidPacket,
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      ":0502000A000DE2\r\n",
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   ":0502000A000DE2\r\n",
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -155,7 +155,7 @@ func TestASCIIReadDiscreteInputs(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).DiscreteInputs = tt.inputs
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -201,9 +201,9 @@ func TestASCIIReadHoldingRegisters(t *testing.T) {
 			readError: ErrInvalidPacket,
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      ":010300000002FA\r\n",
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   ":010300000002FA\r\n",
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -216,7 +216,7 @@ func TestASCIIReadHoldingRegisters(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).HoldingRegisters = tt.registers
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -262,9 +262,9 @@ func TestASCIIReadInputRegisters(t *testing.T) {
 			readError: ErrInvalidPacket,
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      ":050400000002F5\r\n",
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   ":050400000002F5\r\n",
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -277,7 +277,7 @@ func TestASCIIReadInputRegisters(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).InputRegisters = tt.registers
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -323,9 +323,9 @@ func TestASCIIWriteSingleCoil(t *testing.T) {
 			readError: ErrInvalidPacket,
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      ":0505000A00FFED\r\n",
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   ":0505000A00FFED\r\n",
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -337,7 +337,7 @@ func TestASCIIWriteSingleCoil(t *testing.T) {
 			s, e := newModbusASCIIServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -384,9 +384,9 @@ func TestASCIIWriteSingleRegister(t *testing.T) {
 			readError: ErrInvalidPacket,
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      ":050600100003E2\r\n",
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   ":050600100003E2\r\n",
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -398,7 +398,7 @@ func TestASCIIWriteSingleRegister(t *testing.T) {
 			s, e := newModbusASCIIServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -445,9 +445,9 @@ func TestASCIIWriteMultipleCoils(t *testing.T) {
 			readError: ErrInvalidPacket,
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      ":050F000000180301830746\r\n",
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   ":050F000000180301830746\r\n",
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -459,7 +459,7 @@ func TestASCIIWriteMultipleCoils(t *testing.T) {
 			s, e := newModbusASCIIServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -506,9 +506,9 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 			readError: ErrInvalidPacket,
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      ":0510000000020400040002DF\r\n",
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   ":0510000000020400040002DF\r\n",
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -520,7 +520,7 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 			s, e := newModbusASCIIServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)

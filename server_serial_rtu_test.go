@@ -14,13 +14,13 @@ func TestRTUAcceptRequest(t *testing.T) {
 	}
 	s, e := newModbusRTUServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 	assert.NoError(t, e)
-	adu, err := s.acceptRequest()
+	adu, err := s.acceptAndValidateRequest()
 	assert.NoError(t, err)
 	assert.NotNil(t, adu)
 	assert.Equal(t, uint16(0x04), adu.Address())
-	assert.Equal(t, byte(0x01), adu.PDU().Function)
-	assert.Equal(t, []byte{0x00, 0x0A, 0x00, 0x0D}, adu.PDU().Data)
-	assert.Equal(t, []byte{0xDD, 0x98}, adu.Checksum())
+	assert.Equal(t, byte(0x01), adu.Request().PDU().Function)
+	assert.Equal(t, []byte{0x00, 0x0A, 0x00, 0x0D}, adu.Request().PDU().Data)
+	assert.Equal(t, []byte{0xDD, 0x98}, adu.Request().Checksum())
 }
 
 func TestRTUReadCoils(t *testing.T) {
@@ -45,9 +45,9 @@ func TestRTUReadCoils(t *testing.T) {
 			readError: ErrInvalidChecksum,
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      []byte{0x05, 0x01, 0x00, 0x0A, 0x00, 0x0D, 0xdc, 0x49},
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   []byte{0x05, 0x01, 0x00, 0x0A, 0x00, 0x0D, 0xdc, 0x49},
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -60,7 +60,7 @@ func TestRTUReadCoils(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).Coils = tt.coils
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -95,9 +95,9 @@ func TestRTUReadDiscreteInputs(t *testing.T) {
 			response: []byte{0x04, 0x02, 0x02, 0x0A, 0x11, 0xb3, 0x14},
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      []byte{0x05, 0x02, 0x00, 0x0A, 0x00, 0x0D, 0x98, 0x49},
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   []byte{0x05, 0x02, 0x00, 0x0A, 0x00, 0x0D, 0x98, 0x49},
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -110,7 +110,7 @@ func TestRTUReadDiscreteInputs(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).DiscreteInputs = tt.inputs
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -145,9 +145,9 @@ func TestRTUReadHoldingRegisters(t *testing.T) {
 			response:  []byte{0x04, 0x03, 0x04, 0x00, 0x06, 0x00, 0x05, 0x8f, 0x31},
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      []byte{0x05, 0x03, 0x00, 0x00, 0x00, 0x02, 0xc5, 0x8f},
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   []byte{0x05, 0x03, 0x00, 0x00, 0x00, 0x02, 0xc5, 0x8f},
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -160,7 +160,7 @@ func TestRTUReadHoldingRegisters(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).HoldingRegisters = tt.registers
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -195,9 +195,9 @@ func TestRTUReadInputRegisters(t *testing.T) {
 			response:  []byte{0x04, 0x04, 0x04, 0x00, 0x06, 0x00, 0x05, 0x8e, 0x86},
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      []byte{0x05, 0x04, 0x00, 0x00, 0x00, 0x02, 0x70, 0x4f},
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   []byte{0x05, 0x04, 0x00, 0x00, 0x00, 0x02, 0x70, 0x4f},
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -210,7 +210,7 @@ func TestRTUReadInputRegisters(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).InputRegisters = tt.registers
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -245,9 +245,9 @@ func TestRTUWriteSingleCoil(t *testing.T) {
 			response:  []byte{0x04, 0x05, 0x00, 0x0A, 0x00, 0xFF, 0xAD, 0xDD},
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      []byte{0x05, 0x05, 0x00, 0x0A, 0x00, 0xFF, 0xAC, 0x0C},
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   []byte{0x05, 0x05, 0x00, 0x0A, 0x00, 0xFF, 0xAC, 0x0C},
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -259,7 +259,7 @@ func TestRTUWriteSingleCoil(t *testing.T) {
 			s, e := newModbusRTUServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -295,9 +295,9 @@ func TestRTUWriteSingleRegister(t *testing.T) {
 			response:      []byte{0x04, 0x06, 0x00, 0x10, 0x00, 0x03, 0xC8, 0x5B},
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      []byte{0x05, 0x06, 0x00, 0x10, 0x00, 0x03, 0xC9, 0x8A},
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   []byte{0x05, 0x06, 0x00, 0x10, 0x00, 0x03, 0xC9, 0x8A},
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -309,7 +309,7 @@ func TestRTUWriteSingleRegister(t *testing.T) {
 			s, e := newModbusRTUServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -345,9 +345,9 @@ func TestRTUWriteMultipleCoils(t *testing.T) {
 			response:          []byte{0x04, 0x0F, 0x00, 0x00, 0x00, 0x18, 0x55, 0x94},
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      []byte{0x05, 0x0F, 0x00, 0x00, 0x00, 0x18, 0x03, 0x01, 0x83, 0x07, 0x70, 0x93},
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   []byte{0x05, 0x0F, 0x00, 0x00, 0x00, 0x18, 0x03, 0x01, 0x83, 0x07, 0x70, 0x93},
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -359,7 +359,7 @@ func TestRTUWriteMultipleCoils(t *testing.T) {
 			s, e := newModbusRTUServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -395,9 +395,9 @@ func TestRTUWriteMultipleRegisters(t *testing.T) {
 			response:          []byte{0x04, 0x10, 0x00, 0x00, 0x00, 0x02, 0x41, 0x9D},
 		},
 		{
-			name:         "InvalidRequest_NotOurAddress",
-			request:      []byte{0x05, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, 0x00, 0x04, 0x00, 0x02, 0x26, 0x9F},
-			handlerError: ErrNotOurAddress,
+			name:      "InvalidRequest_NotOurAddress",
+			request:   []byte{0x05, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, 0x00, 0x04, 0x00, 0x02, 0x26, 0x9F},
+			readError: ErrNotOurAddress,
 		},
 	}
 
@@ -409,7 +409,7 @@ func TestRTUWriteMultipleRegisters(t *testing.T) {
 			s, e := newModbusRTUServerWithHandler(logger, data, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptRequest()
+			adu, err := s.acceptAndValidateRequest()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)

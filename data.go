@@ -2,14 +2,108 @@ package gomodbus
 
 import (
 	"encoding/hex"
+	"fmt"
+	"io"
 	"strconv"
+	"strings"
+
+	"go.uber.org/zap"
 )
+
+type ModbusOperation interface {
+	Address() uint16
+	Request() ApplicationDataUnit
+	SendResponse(ModbusResponse) error
+}
 
 type ApplicationDataUnit interface {
 	Bytes() []byte
 	Address() uint16
 	PDU() *ProtocolDataUnit
 	Checksum() []byte
+}
+
+type ModbusASCIIOperation struct {
+	logger         *zap.Logger
+	request        ApplicationDataUnit
+	response       ApplicationDataUnit
+	responseWriter io.Writer
+}
+
+func (op *ModbusASCIIOperation) Request() ApplicationDataUnit {
+	return op.request
+}
+
+func (op *ModbusASCIIOperation) Address() uint16 {
+	return op.request.Address()
+}
+
+func (op *ModbusASCIIOperation) SendResponse(response ModbusResponse) error {
+	op.response = NewASCIIApplicationDataUnitFromResponse(op.request.Address(), op.request.PDU().Function, response)
+	op.logger.Debug("Sending modbus response", zap.Any("response", op.response))
+	encodedString := strings.ToUpper(hex.EncodeToString(op.response.Bytes()))
+	data := []byte(fmt.Sprintf(":%s\r\n", encodedString))
+	n, err := op.responseWriter.Write(data)
+	if err != nil {
+		return err
+	}
+	if n < len(data) {
+		return io.ErrShortWrite
+	}
+	return nil
+}
+
+func NewModbusASCIIOperation(data string, responseWriter io.Writer, logger *zap.Logger) (ModbusOperation, error) {
+	request, err := NewASCIIApplicationDataUnitFromRequest(data)
+	if err != nil {
+		return nil, err
+	}
+	return &ModbusASCIIOperation{
+		logger:         logger,
+		request:        request,
+		responseWriter: responseWriter,
+	}, nil
+}
+
+type ModbusRTUOperation struct {
+	logger         *zap.Logger
+	request        ApplicationDataUnit
+	response       ApplicationDataUnit
+	responseWriter io.Writer
+}
+
+func (op *ModbusRTUOperation) Request() ApplicationDataUnit {
+	return op.request
+}
+
+func (op *ModbusRTUOperation) Address() uint16 {
+	return op.request.Address()
+}
+
+func (op *ModbusRTUOperation) SendResponse(response ModbusResponse) error {
+	op.response = NewRTUApplicationDataUnitFromResponse(op.request.Address(), op.request.PDU().Function, response)
+	op.logger.Debug("Sending modbus response", zap.Any("response", op.response))
+	data := op.response.Bytes()
+	n, err := op.responseWriter.Write(data)
+	if err != nil {
+		return err
+	}
+	if n < len(data) {
+		return io.ErrShortWrite
+	}
+	return nil
+}
+
+func NewModbusRTUOperation(data []byte, responseWriter io.Writer, logger *zap.Logger) (ModbusOperation, error) {
+	request, err := NewRTUApplicationDataUnitFromRequest(data)
+	if err != nil {
+		return nil, err
+	}
+	return &ModbusRTUOperation{
+		logger:         logger,
+		request:        request,
+		responseWriter: responseWriter,
+	}, nil
 }
 
 type RTUApplicationDataUnit struct {

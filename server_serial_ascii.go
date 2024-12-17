@@ -3,13 +3,10 @@ package gomodbus
 import (
 	"bufio"
 	"context"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
-	"strings"
 
-	"github.com/tarm/serial"
+	"github.com/goburrow/serial"
 	"go.uber.org/zap"
 )
 
@@ -17,12 +14,12 @@ type ModbusASCIIServer struct {
 	modbusSerialServer
 }
 
-func NewModbusASCIIServer(logger *zap.Logger, port *serial.Port, serverAddress uint16) (*ModbusASCIIServer, error) {
+func NewModbusASCIIServer(logger *zap.Logger, port serial.Port, serverAddress uint16) (ModbusServer, error) {
 	handler := NewDefaultHandler(logger, 65535, 65535, 65535, 65535)
 	return NewModbusASCIIServerWithHandler(logger, port, serverAddress, handler)
 }
 
-func NewModbusASCIIServerWithHandler(logger *zap.Logger, port *serial.Port, serverAddress uint16, handler RequestHandler) (*ModbusASCIIServer, error) {
+func NewModbusASCIIServerWithHandler(logger *zap.Logger, port serial.Port, serverAddress uint16, handler RequestHandler) (ModbusServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
@@ -33,20 +30,17 @@ func NewModbusASCIIServerWithHandler(logger *zap.Logger, port *serial.Port, serv
 			address: serverAddress,
 			reader:  bufio.NewReader(port),
 			modbusServer: modbusServer{
-				cancelCtx:           ctx,
-				cancel:              cancel,
-				logger:              logger,
-				handler:             handler,
-				responseCreatorFunc: NewASCIIApplicationDataUnitFromResponse,
-				responseFormatter:   formatASCIIResponse,
-				responseWriter:      port,
+				cancelCtx: ctx,
+				cancel:    cancel,
+				logger:    logger,
+				handler:   handler,
 			},
 		},
 	}, nil
 }
 
 // newModbusASCIIServerWithHandler creates a new Modbus ASCII server with a io.ReadWriter stream instead of an explicit port, for testing purposes, and a RequestHandler.
-func newModbusASCIIServerWithHandler(logger *zap.Logger, stream io.ReadWriter, serverAddress uint16, handler RequestHandler) (*ModbusASCIIServer, error) {
+func newModbusASCIIServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler RequestHandler) (*ModbusASCIIServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
@@ -56,14 +50,12 @@ func newModbusASCIIServerWithHandler(logger *zap.Logger, stream io.ReadWriter, s
 		modbusSerialServer: modbusSerialServer{
 			address: serverAddress,
 			reader:  bufio.NewReader(stream),
+			port:    stream,
 			modbusServer: modbusServer{
-				cancelCtx:           ctx,
-				cancel:              cancel,
-				logger:              logger,
-				handler:             handler,
-				responseCreatorFunc: NewASCIIApplicationDataUnitFromResponse,
-				responseFormatter:   formatASCIIResponse,
-				responseWriter:      stream,
+				cancelCtx: ctx,
+				cancel:    cancel,
+				logger:    logger,
+				handler:   handler,
 			},
 		},
 	}, nil
@@ -108,30 +100,33 @@ func (s *ModbusASCIIServer) run() {
 		case <-s.cancelCtx.Done():
 			return
 		default:
-			packet, err := s.acceptRequest()
-			if err != nil {
+			op, err := s.acceptAndValidateRequest()
+			if err == ErrNotOurAddress {
+				s.logger.Debug("Received packet with incorrect address, discarding packet", zap.Any("packet", op))
+				continue
+			} else if err != nil {
 				s.logger.Error("Failed to accept request", zap.Error(err))
 				continue
 			}
 
-			if packet.Address() != s.address {
-				s.logger.Debug("Received packet with incorrect address, discarding packet", zap.Any("packet", packet))
-				continue
-			}
-			s.handlePacket(packet)
+			s.handlePacket(op)
 		}
 	}
 }
 
-func (s *ModbusASCIIServer) acceptRequest() (ApplicationDataUnit, error) {
+func (s *ModbusASCIIServer) acceptAndValidateRequest() (ModbusOperation, error) {
 	str, err := s.reader.ReadString('\n')
 	if err != nil {
 		return nil, err
 	}
-	return NewASCIIApplicationDataUnitFromRequest(str)
-}
+	op, err := NewModbusASCIIOperation(str, s.port, s.logger)
+	if err != nil {
+		return nil, err
+	}
 
-func formatASCIIResponse(response ApplicationDataUnit) []byte {
-	packet := strings.ToUpper(hex.EncodeToString(response.Bytes()))
-	return []byte(fmt.Sprintf(":%s\r\n", packet))
+	if op.Address() != s.address {
+		return nil, ErrNotOurAddress
+	}
+
+	return op, nil
 }

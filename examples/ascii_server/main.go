@@ -4,8 +4,8 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus"
-	"github.com/tarm/serial"
 	"go.uber.org/zap"
 )
 
@@ -14,12 +14,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	port, err := serial.OpenPort(&serial.Config{
-		Name:     "/dev/ttyUSB0",
-		Baud:     19200,
-		Size:     8,
-		Parity:   serial.ParityNone,
-		StopBits: serial.Stop1,
+	port, err := serial.Open(&serial.Config{
+		Address:  "/dev/ttyUSB0",
+		BaudRate: 19200,
+		DataBits: 8,
+		Parity:   "N",
+		StopBits: 1,
 	})
 	if err != nil {
 		panic(err)
