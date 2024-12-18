@@ -1,4 +1,4 @@
-package gomodbus
+package data
 
 import "testing"
 

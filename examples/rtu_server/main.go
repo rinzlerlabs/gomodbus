@@ -5,12 +5,12 @@ import (
 	"os/signal"
 
 	"github.com/goburrow/serial"
-	"github.com/rinzlerlabs/gomodbus"
+	"github.com/rinzlerlabs/gomodbus/server"
 	"go.uber.org/zap"
 )
 
 func main() {
-	logger, err := zap.NewDevelopment()
+	logger, err := zap.NewProduction()
 	if err != nil {
 		panic(err)
 	}
@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	server, err := gomodbus.NewModbusRTUServer(logger, port, 91)
+	server, err := server.NewModbusRTUServer(logger, port, 91)
 	if err != nil {
 		panic(err)
 	}

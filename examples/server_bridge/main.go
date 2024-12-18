@@ -5,7 +5,7 @@ import (
 	"os/signal"
 
 	"github.com/goburrow/serial"
-	"github.com/rinzlerlabs/gomodbus"
+	"github.com/rinzlerlabs/gomodbus/server"
 	"go.uber.org/zap"
 )
 
@@ -37,8 +37,8 @@ func main() {
 		return
 	}
 
-	handler := gomodbus.NewDefaultHandler(logger, 65535, 65535, 65535, 65535)
-	rtu, err := gomodbus.NewModbusRTUServerWithHandler(logger, rtuPort, 91, handler)
+	handler := server.NewDefaultHandler(logger, 65535, 65535, 65535, 65535)
+	rtu, err := server.NewModbusRTUServerWithHandler(logger, rtuPort, 91, handler)
 	if err != nil {
 		logger.Error("Failed to create RTU server", zap.Error(err))
 		return
@@ -50,7 +50,7 @@ func main() {
 	}
 	defer rtu.Stop()
 
-	ascii, err := gomodbus.NewModbusASCIIServerWithHandler(logger, asciiPort, 91, handler)
+	ascii, err := server.NewModbusASCIIServerWithHandler(logger, asciiPort, 91, handler)
 	if err != nil {
 		logger.Error("Failed to create ASCII server", zap.Error(err))
 		return
