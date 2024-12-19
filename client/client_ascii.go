@@ -16,20 +16,22 @@ func NewModbusASCIIClient(logger *zap.Logger, port serial.Port, responseTimeout 
 
 func NewModbusASCIIClientWithContext(ctx context.Context, logger *zap.Logger, port serial.Port, responseTimeout time.Duration) ModbusClient {
 	return &modbusClient{
-		transport:       ascii.NewModbusASCIIClientTransport(port, logger),
-		logger:          logger,
-		ctx:             ctx,
-		responseTimeout: responseTimeout,
-		aduFromRequest:  newASCIIApplicationDataUnitFromModbusRequest,
+		transport:         ascii.NewModbusASCIITransport(port, logger),
+		logger:            logger,
+		ctx:               ctx,
+		responseTimeout:   responseTimeout,
+		newModbusFrame:    ascii.NewModbusFrame,
+		createTransaction: ascii.NewModbusTransaction,
 	}
 }
 
 func newModbusASCIIClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) ModbusClient {
 	return &modbusClient{
-		transport:       ascii.NewModbusASCIIClientTransport(stream, logger),
-		logger:          logger,
-		ctx:             context.Background(),
-		responseTimeout: responseTimeout,
-		aduFromRequest:  newASCIIApplicationDataUnitFromModbusRequest,
+		transport:         ascii.NewModbusASCIITransport(stream, logger),
+		logger:            logger,
+		ctx:               context.Background(),
+		responseTimeout:   responseTimeout,
+		newModbusFrame:    ascii.NewModbusFrame,
+		createTransaction: ascii.NewModbusTransaction,
 	}
 }

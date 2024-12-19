@@ -18,13 +18,14 @@ func TestASCIIAcceptRequest(t *testing.T) {
 	}
 	s, e := newModbusASCIIServerWithHandler(logger, port, 0x02, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 	assert.NoError(t, e)
-	adu, err := s.acceptAndValidateRequest()
+	txn, err := s.acceptAndValidateTransaction()
 	assert.NoError(t, err)
-	assert.NotNil(t, adu)
+	assert.NotNil(t, txn)
+	adu := txn.Frame()
 	assert.Equal(t, uint16(0x02), adu.Address())
-	assert.Equal(t, data.FunctionCode(0x01), adu.PDU().Function)
-	assert.Equal(t, []byte{0x00, 0x20, 0x00, 0xC}, adu.PDU().Data)
-	assert.Equal(t, []byte{0xD1}, adu.Checksum())
+	assert.Equal(t, data.FunctionCode(0x01), adu.PDU().FunctionCode())
+	assert.Equal(t, []byte{0x00, 0x20, 0x00, 0xC}, adu.PDU().Operation().Bytes())
+	assert.Equal(t, []byte{0xD1}, []byte(adu.Checksum()))
 }
 
 func TestASCIIReadCoils(t *testing.T) {
@@ -74,7 +75,7 @@ func TestASCIIReadCoils(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).Coils = tt.coils
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -135,7 +136,7 @@ func TestASCIIReadDiscreteInputs(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).DiscreteInputs = tt.inputs
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -196,7 +197,7 @@ func TestASCIIReadHoldingRegisters(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).HoldingRegisters = tt.registers
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -257,7 +258,7 @@ func TestASCIIReadInputRegisters(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).InputRegisters = tt.registers
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -317,7 +318,7 @@ func TestASCIIWriteSingleCoil(t *testing.T) {
 			s, e := newModbusASCIIServerWithHandler(logger, port, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -378,7 +379,7 @@ func TestASCIIWriteSingleRegister(t *testing.T) {
 			s, e := newModbusASCIIServerWithHandler(logger, port, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -439,7 +440,7 @@ func TestASCIIWriteMultipleCoils(t *testing.T) {
 			s, e := newModbusASCIIServerWithHandler(logger, port, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -500,7 +501,7 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 			s, e := newModbusASCIIServerWithHandler(logger, port, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -521,7 +522,7 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 }
 
 func TestGenerateLrc(t *testing.T) {
-	data, err := hex.DecodeString("0405000A0000")
+	data, err := hex.DecodeString("048102")
 	assert.NoError(t, err)
 	var lrc byte
 	// then the data

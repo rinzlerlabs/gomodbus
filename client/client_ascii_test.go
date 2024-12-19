@@ -25,10 +25,16 @@ func TestASCIIReadCoils(t *testing.T) {
 			fromServer: ":0401020A11DE\r\n",
 		},
 		{
+			name:            "Exception",
+			toServer:        ":0401000A000DE4\r\n",
+			fromServer:      ":04810279\r\n",
+			fromServerError: common.ErrIllegalDataAddress,
+		},
+		{
 			name:            "InvalidRequest_IvalidChecksum",
 			toServer:        ":0401000A000DE4\r\n",
 			fromServerError: common.ErrInvalidChecksum,
-			fromServer:      ":0401000A000DE5\r\n",
+			fromServer:      ":0401020A11DF\r\n",
 		},
 	}
 

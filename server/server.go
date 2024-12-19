@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/rinzlerlabs/gomodbus/common"
-	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"go.uber.org/zap"
 )
@@ -55,14 +54,14 @@ func (s *modbusServer) Start() error {
 func (s *modbusServer) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.logger.Info("Stopping Modbus RTU server")
+	s.logger.Info("Stopping Modbus server")
 
 	if s.cancel != nil {
 		s.cancel()
 		defer func() { s.cancel = nil }()
 	}
 	s.wg.Wait()
-	s.logger.Info("Modbus RTU server stopped")
+	s.logger.Info("Modbus Server stopped")
 	return nil
 }
 
@@ -82,7 +81,7 @@ func (s *modbusServer) run() {
 		case <-s.cancelCtx.Done():
 			return
 		default:
-			op, err := s.acceptAndValidateRequest()
+			op, err := s.acceptAndValidateTransaction()
 			if err == common.ErrIgnorePacket {
 				continue
 			} else if err == io.EOF {
@@ -106,15 +105,15 @@ func (s *modbusServer) run() {
 	}
 }
 
-func (s *modbusServer) acceptAndValidateRequest() (data.ModbusFrame, error) {
-	op, err := s.transport.ReadNextFrame(s.cancelCtx)
+func (s *modbusServer) acceptAndValidateTransaction() (transport.ModbusTransaction, error) {
+	txn, err := s.transport.AcceptRequest(s.cancelCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	if op.Address() != s.address {
+	if txn.Frame().Address() != s.address {
 		return nil, common.ErrNotOurAddress
 	}
 
-	return op, nil
+	return txn, nil
 }

@@ -40,13 +40,14 @@ func TestRTUAcceptRequest(t *testing.T) {
 	}
 	s, e := newModbusRTUServerWithHandler(logger, port, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 	assert.NoError(t, e)
-	adu, err := s.acceptAndValidateRequest()
+	txn, err := s.acceptAndValidateTransaction()
 	assert.NoError(t, err)
-	assert.NotNil(t, adu)
+	assert.NotNil(t, txn)
+	adu := txn.Frame()
 	assert.Equal(t, uint16(0x04), adu.Address())
-	assert.Equal(t, data.FunctionCode(0x01), adu.PDU().Function)
-	assert.Equal(t, []byte{0x00, 0x0A, 0x00, 0x0D}, adu.PDU().Data)
-	assert.Equal(t, []byte{0xDD, 0x98}, adu.Checksum())
+	assert.Equal(t, data.FunctionCode(0x01), adu.PDU().FunctionCode())
+	assert.Equal(t, []byte{0x00, 0x0A, 0x00, 0x0D}, adu.PDU().Operation().Bytes())
+	assert.Equal(t, []byte{0xDD, 0x98}, []byte(adu.Checksum()))
 }
 
 func TestRTUReadCoils(t *testing.T) {
@@ -86,7 +87,7 @@ func TestRTUReadCoils(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).Coils = tt.coils
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -136,7 +137,7 @@ func TestRTUReadDiscreteInputs(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).DiscreteInputs = tt.inputs
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -186,7 +187,7 @@ func TestRTUReadHoldingRegisters(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).HoldingRegisters = tt.registers
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -236,7 +237,7 @@ func TestRTUReadInputRegisters(t *testing.T) {
 			assert.NoError(t, e)
 
 			s.handler.(*DefaultHandler).InputRegisters = tt.registers
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -285,7 +286,7 @@ func TestRTUWriteSingleCoil(t *testing.T) {
 			s, e := newModbusRTUServerWithHandler(logger, port, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -335,7 +336,7 @@ func TestRTUWriteSingleRegister(t *testing.T) {
 			s, e := newModbusRTUServerWithHandler(logger, port, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -385,7 +386,7 @@ func TestRTUWriteMultipleCoils(t *testing.T) {
 			s, e := newModbusRTUServerWithHandler(logger, port, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
@@ -435,7 +436,7 @@ func TestRTUWriteMultipleRegisters(t *testing.T) {
 			s, e := newModbusRTUServerWithHandler(logger, port, 0x04, NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 			assert.NoError(t, e)
 
-			adu, err := s.acceptAndValidateRequest()
+			adu, err := s.acceptAndValidateTransaction()
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, adu)
