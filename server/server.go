@@ -16,7 +16,7 @@ type ModbusServer interface {
 	Stop() error
 }
 
-type modbusServer struct {
+type modbusSerialServer struct {
 	handler   RequestHandler
 	cancelCtx context.Context
 	cancel    context.CancelFunc
@@ -28,11 +28,11 @@ type modbusServer struct {
 	wg        sync.WaitGroup
 }
 
-func (s *modbusServer) IsRunning() bool {
+func (s *modbusSerialServer) IsRunning() bool {
 	return s.isRunning
 }
 
-func (s *modbusServer) Start() error {
+func (s *modbusSerialServer) Start() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.isRunning {
@@ -51,7 +51,7 @@ func (s *modbusServer) Start() error {
 	return nil
 }
 
-func (s *modbusServer) Stop() error {
+func (s *modbusSerialServer) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.logger.Info("Stopping Modbus server")
@@ -65,7 +65,7 @@ func (s *modbusServer) Stop() error {
 	return nil
 }
 
-func (s *modbusServer) run() {
+func (s *modbusSerialServer) run() {
 	s.isRunning = true
 	s.wg.Add(1)
 	defer s.wg.Done()
@@ -105,7 +105,7 @@ func (s *modbusServer) run() {
 	}
 }
 
-func (s *modbusServer) acceptAndValidateTransaction() (transport.ModbusTransaction, error) {
+func (s *modbusSerialServer) acceptAndValidateTransaction() (transport.ModbusTransaction, error) {
 	txn, err := s.transport.AcceptRequest(s.cancelCtx)
 	if err != nil {
 		return nil, err

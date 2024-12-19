@@ -22,7 +22,7 @@ func NewModbusRTUServerWithHandler(logger *zap.Logger, port serial.Port, serverA
 	}
 	internalPort := newRTUSerialPort(port)
 	ctx, cancel := context.WithCancel(context.Background())
-	return &modbusServer{
+	return &modbusSerialServer{
 		logger:    logger,
 		handler:   handler,
 		cancelCtx: ctx,
@@ -32,13 +32,13 @@ func NewModbusRTUServerWithHandler(logger *zap.Logger, port serial.Port, serverA
 	}, nil
 }
 
-func newModbusRTUServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler RequestHandler) (*modbusServer, error) {
+func newModbusRTUServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler RequestHandler) (*modbusSerialServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	return &modbusServer{
+	return &modbusSerialServer{
 		logger:    logger,
 		handler:   handler,
 		cancelCtx: ctx,

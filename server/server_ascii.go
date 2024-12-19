@@ -21,7 +21,7 @@ func NewModbusASCIIServerWithHandler(logger *zap.Logger, port serial.Port, serve
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	return &modbusServer{
+	return &modbusSerialServer{
 		logger:    logger,
 		handler:   handler,
 		cancelCtx: ctx,
@@ -32,13 +32,13 @@ func NewModbusASCIIServerWithHandler(logger *zap.Logger, port serial.Port, serve
 }
 
 // newModbusASCIIServerWithHandler creates a new Modbus ASCII server with a io.ReadWriter stream instead of an explicit port, for testing purposes, and a RequestHandler.
-func newModbusASCIIServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler RequestHandler) (*modbusServer, error) {
+func newModbusASCIIServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler RequestHandler) (*modbusSerialServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	return &modbusServer{
+	return &modbusSerialServer{
 		logger:    logger,
 		handler:   handler,
 		cancelCtx: ctx,

@@ -6,86 +6,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"go.uber.org/zap"
 )
-
-type modbusTCPTransport struct {
-	logger   *zap.Logger
-	mu       sync.Mutex
-	listener net.Listener
-}
-
-func NewModbusTCPTransport(endpoint string, logger *zap.Logger) (transport.Transport, error) {
-	listener, err := net.Listen("tcp", endpoint)
-	if err != nil {
-		logger.Error("Failed to listen", zap.Error(err))
-		return nil, err
-	}
-
-	return &modbusTCPTransport{
-		logger:   logger,
-		listener: listener,
-	}, nil
-}
-
-func (t *modbusTCPTransport) AcceptRequest(ctx context.Context) (transport.ModbusTransaction, error) {
-	connChan := make(chan net.Conn)
-	errChan := make(chan error)
-
-	go func() {
-		conn, err := t.listener.Accept()
-		if err != nil {
-			errChan <- err
-			return
-		}
-		t.logger.Debug("Accepted connection from TCP socket", zap.String("remoteAddr", conn.RemoteAddr().String()))
-		connChan <- conn
-	}()
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case err := <-errChan:
-		return nil, err
-	case conn := <-connChan:
-		socketTransport := newModbusTCPSocketTransport(conn, t.logger)
-		return socketTransport.AcceptRequest(ctx)
-	}
-}
-
-func (t *modbusTCPTransport) WriteRawFrame(data []byte) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return common.ErrNotImplemented
-}
-
-func (t *modbusTCPTransport) WriteFrame(frame *transport.ModbusFrame) error {
-	return common.ErrNotImplemented
-}
-
-func (t *modbusTCPTransport) Write(p []byte) (int, error) {
-	return 0, common.ErrNotImplemented
-}
-
-func (t *modbusTCPTransport) Flush(ctx context.Context) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.logger.Debug("Flushing TCP transport is a no-op")
-	return nil
-}
-
-func (t *modbusTCPTransport) Close() error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	listener := t.listener
-	t.listener = nil
-	if listener == nil {
-		return nil
-	}
-	return listener.Close()
-}
 
 type modbusTCPSocketTransport struct {
 	logger *zap.Logger
@@ -172,7 +95,7 @@ func (m *modbusTCPSocketTransport) WriteFrame(frame *transport.ModbusFrame) erro
 	return err
 }
 
-func newModbusTCPSocketTransport(conn net.Conn, logger *zap.Logger) transport.Transport {
+func NewModbusTCPSocketTransport(conn net.Conn, logger *zap.Logger) transport.Transport {
 	return &modbusTCPSocketTransport{
 		logger: logger,
 		conn:   conn,
