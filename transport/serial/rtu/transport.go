@@ -121,9 +121,7 @@ start:
 				t.logger.Debug("Invalid byte count for WriteMultipleRegisters, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))
 				goto start
 			}
-		}
-
-		if functionCode == data.WriteMultipleCoils {
+		} else if functionCode == data.WriteMultipleCoils {
 			// The byte count must be a multiple of 8
 			if byteCount%8 != 0 {
 				t.logger.Debug("Invalid byte count for WriteMultipleCoils, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))
@@ -203,6 +201,10 @@ func (t *modbusRTUTransport) readResponseFrame(ctx context.Context) ([]byte, err
 		read += n
 		length := int(bytes[2])
 		bytesNeeded := length + 5
+		if bytesNeeded > 256 {
+			t.logger.Warn("Request indicates it needs more than 256 bytes, this is likely a corrupt packet")
+			return nil, common.ErrInvalidPacket
+		}
 		// 3 for the bytes we already read, 2 for the CRC which is 5 bytes
 		for read < bytesNeeded {
 			d := make([]byte, bytesNeeded-read)
