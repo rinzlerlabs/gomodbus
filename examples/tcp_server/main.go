@@ -5,6 +5,7 @@ import (
 	"os/signal"
 
 	"github.com/rinzlerlabs/gomodbus/server"
+	"github.com/rinzlerlabs/gomodbus/server/network/tcp"
 	"go.uber.org/zap"
 )
 
@@ -13,8 +14,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	server, err := server.NewModbusTCPServer(logger, ":8502")
+	handler := server.NewDefaultHandler(logger, 65535, 65535, 65535, 65535)
+	handler.(*server.DefaultHandler).Coils[0] = true
+	handler.(*server.DefaultHandler).Coils[8] = true
+	handler.(*server.DefaultHandler).Coils[15] = true
+	server, err := tcp.NewModbusServerWithHandler(logger, ":8502", handler)
 	if err != nil {
 		panic(err)
 	}

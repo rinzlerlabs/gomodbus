@@ -6,34 +6,9 @@ import (
 
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
+	"github.com/rinzlerlabs/gomodbus/transport/network"
 	"go.uber.org/zap/zapcore"
 )
-
-type header struct {
-	transactionid []byte
-	protocolid    []byte
-	unitid        byte
-}
-
-func (h header) TransactionID() []byte {
-	return h.transactionid
-}
-
-func (h header) ProtocolID() []byte {
-	return h.protocolid
-}
-
-func (h header) UnitID() byte {
-	return h.unitid
-}
-
-func (h header) Bytes() []byte {
-	bytes := make([]byte, 0)
-	bytes = append(bytes, h.transactionid...)
-	bytes = append(bytes, h.protocolid...)
-	bytes = append(bytes, h.unitid)
-	return bytes
-}
 
 type modbusApplicationDataUnit struct {
 	header transport.TCPHeader
@@ -84,12 +59,8 @@ func NewModbusRequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 	}
 	pdu := transport.NewProtocolDataUnit(functionCode, op)
 	adu := &modbusApplicationDataUnit{
-		header: &header{
-			transactionid: txId,
-			protocolid:    protoId,
-			unitid:        unitId,
-		},
-		pdu: pdu,
+		header: network.NewHeader(txId, protoId, unitId),
+		pdu:    pdu,
 	}
 	return &transport.ModbusFrame{
 		ApplicationDataUnit: adu,
@@ -113,19 +84,15 @@ func NewModbusTCPResponseFrame(packet []byte, valueCount uint16) (*transport.Mod
 	unitId := packet[6]
 	fmt.Printf("txId: %v, protoId: %v, length: %v, unitId: %v\n", txId, protoId, length, unitId)
 	packet = packet[7:]
-	functionCode := data.FunctionCode(packet[1])
-	op, err := data.ParseModbusResponseOperation(functionCode, packet[2:len(packet)-1], valueCount)
+	functionCode := data.FunctionCode(packet[0])
+	op, err := data.ParseModbusResponseOperation(functionCode, packet[1:], valueCount)
 	if err != nil {
 		return nil, err
 	}
 	pdu := transport.NewProtocolDataUnit(functionCode, op)
 	adu := &modbusApplicationDataUnit{
-		header: &header{
-			transactionid: txId,
-			protocolid:    protoId,
-			unitid:        unitId,
-		},
-		pdu: pdu,
+		header: network.NewHeader(txId, protoId, unitId),
+		pdu:    pdu,
 	}
 	return &transport.ModbusFrame{
 		ApplicationDataUnit: adu,

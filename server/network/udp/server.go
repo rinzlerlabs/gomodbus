@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type ModbusUDPServer struct {
+type modbusServer struct {
 	handler   server.RequestHandler
 	cancelCtx context.Context
 	cancel    context.CancelFunc

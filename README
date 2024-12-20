@@ -1,3 +1,0 @@
-# A golang implementation of Modbus
-
-Supports Modbus RTU, ASCII, TCP, UDP.

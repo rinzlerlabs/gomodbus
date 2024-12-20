@@ -22,7 +22,6 @@ func NewModbusServerWithHandler(logger *zap.Logger, port sp.Port, serverAddress 
 	}
 
 	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, ascii.NewModbusTransport(port, logger))
-
 }
 
 // newModbusServerWithHandler creates a new Modbus ASCII server with a io.ReadWriter stream instead of an explicit port, for testing purposes, and a RequestHandler.

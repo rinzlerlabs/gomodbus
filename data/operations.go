@@ -512,12 +512,13 @@ func (r WriteMultipleCoilsRequest) MarshalLogObject(encoder zapcore.ObjectEncode
 }
 
 func (r *WriteMultipleCoilsRequest) Bytes() []byte {
+	valueCount := len(r.Values)
 	byteCount := getReturnByteCount(r.Values)
 	data := make([]byte, 5+byteCount)
 	data[0] = byte(r.Offset >> 8)
 	data[1] = byte(r.Offset)
-	data[2] = byte(len(r.Values) >> 8)
-	data[3] = byte(len(r.Values))
+	data[2] = byte(valueCount >> 8)
+	data[3] = byte(valueCount)
 	data[4] = byte(byteCount)
 	for i, v := range r.Values {
 		if v {
@@ -582,12 +583,13 @@ func (r WriteMultipleRegistersRequest) MarshalLogObject(encoder zapcore.ObjectEn
 }
 
 func (r *WriteMultipleRegistersRequest) Bytes() []byte {
-	byteCount := 2 * len(r.Values)
+	valueCount := len(r.Values)
+	byteCount := 2 * valueCount
 	data := make([]byte, 5+byteCount)
 	data[0] = byte(r.Offset >> 8)
 	data[1] = byte(r.Offset)
-	data[2] = byte(len(r.Values) >> 8)
-	data[3] = byte(len(r.Values))
+	data[2] = byte(valueCount >> 8)
+	data[3] = byte(valueCount)
 	data[4] = byte(byteCount)
 	for i, v := range r.Values {
 		data[5+i*2] = byte(v >> 8)
