@@ -5,7 +5,7 @@ import (
 	"os/signal"
 
 	"github.com/goburrow/serial"
-	"github.com/rinzlerlabs/gomodbus/server"
+	ascii "github.com/rinzlerlabs/gomodbus/server/serial/ascii"
 	"go.uber.org/zap"
 )
 
@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	server, err := server.NewModbusASCIIServer(logger, port, 91)
+	server, err := ascii.NewModbusServer(logger, port, 91)
 	if err != nil {
 		panic(err)
 	}

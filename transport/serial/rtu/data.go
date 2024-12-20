@@ -6,23 +6,24 @@ import (
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
+	"github.com/rinzlerlabs/gomodbus/transport/serial"
 	"go.uber.org/zap/zapcore"
 )
 
 type modbusApplicationDataUnit struct {
-	address  uint16
+	header   transport.SerialHeader
 	pdu      *transport.ProtocolDataUnit
 	checksum transport.ErrorCheck
 }
 
 func (m modbusApplicationDataUnit) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
-	encoder.AddUint16("Address", m.address)
+	encoder.AddUint16("Address", m.header.Address())
 	encoder.AddObject("PDU", m.pdu)
 	return nil
 }
 
-func (a *modbusApplicationDataUnit) Address() uint16 {
-	return a.address
+func (a *modbusApplicationDataUnit) Header() transport.Header {
+	return a.header
 }
 
 func (a *modbusApplicationDataUnit) PDU() *transport.ProtocolDataUnit {
@@ -41,11 +42,10 @@ func (a *modbusApplicationDataUnit) validateChecksum() error {
 func (a *modbusApplicationDataUnit) Checksum() transport.ErrorCheck {
 	var crc uint16 = 0xFFFF
 	// TODO: avoid the byte array allocation
-	pduBytes := a.pdu.Operation().Bytes()
-	data := make([]byte, 1+1+len(pduBytes))
-	data[0] = byte(a.address)
-	data[1] = byte(a.pdu.FunctionCode())
-	copy(data[2:], pduBytes)
+	data := make([]byte, 0)
+	data = append(data, a.header.Bytes()...)
+	data = append(data, byte(a.pdu.FunctionCode()))
+	data = append(data, a.pdu.Operation().Bytes()...)
 	for _, b := range data {
 		crc ^= uint16(b)
 		for i := 0; i < 8; i++ {
@@ -60,7 +60,7 @@ func (a *modbusApplicationDataUnit) Checksum() transport.ErrorCheck {
 }
 
 func (a *modbusApplicationDataUnit) Bytes() []byte {
-	return append(append([]byte{byte(a.address)}, a.pdu.Bytes()...), a.Checksum()...)
+	return append(append(a.header.Bytes(), a.pdu.Bytes()...), a.Checksum()...)
 }
 
 func newModbusRTURequestProtocolDataUnit(functionCode data.FunctionCode, bytes []byte) (*transport.ProtocolDataUnit, error) {
@@ -75,7 +75,7 @@ func NewModbusRTURequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 		return nil, err
 	}
 	adu := &modbusApplicationDataUnit{
-		address:  uint16(packet[0]),
+		header:   serial.NewHeader(uint16(packet[0])),
 		pdu:      pdu,
 		checksum: packet[len(packet)-2:],
 	}
@@ -89,9 +89,9 @@ func NewModbusRTURequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 }
 
 // NewModbusRTUResponseFramer creates a new Modbus RTU response frame from a request frame and a response PDU
-func NewModbusFrame(frame *transport.ModbusFrame, response *transport.ProtocolDataUnit) *transport.ModbusFrame {
+func NewModbusFrame(header transport.Header, response *transport.ProtocolDataUnit) *transport.ModbusFrame {
 	return &transport.ModbusFrame{
-		ApplicationDataUnit: &modbusApplicationDataUnit{address: frame.Address(), pdu: response},
+		ApplicationDataUnit: &modbusApplicationDataUnit{header: header.(transport.SerialHeader), pdu: response},
 	}
 }
 
@@ -103,7 +103,7 @@ func NewModbusRTUResponseFrame(packet []byte, valueCount uint16) (*transport.Mod
 	}
 	pdu := transport.NewProtocolDataUnit(functionCode, op)
 	adu := &modbusApplicationDataUnit{
-		address:  uint16(packet[0]),
+		header:   serial.NewHeader(uint16(packet[0])),
 		pdu:      pdu,
 		checksum: packet[len(packet)-2:],
 	}
@@ -153,7 +153,7 @@ func (m *modbusTransaction) Exchange(ctx context.Context) (*transport.ModbusFram
 }
 
 func (m *modbusTransaction) Write(pdu *transport.ProtocolDataUnit) error {
-	frame := m.frame.ResponseCreator(m.frame, pdu)
+	frame := m.frame.ResponseCreator(m.frame.Header(), pdu)
 	return m.transport.WriteFrame(frame)
 }
 

@@ -21,7 +21,7 @@ type modbusRTUTransport struct {
 	reader *bufio.Reader
 }
 
-func NewModbusRTUServerTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
+func NewModbusTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
 	return &modbusRTUTransport{
 		logger: logger,
 		stream: stream,

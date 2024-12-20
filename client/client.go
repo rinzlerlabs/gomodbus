@@ -33,20 +33,24 @@ type ModbusClient interface {
 }
 
 type modbusClient struct {
-	logger            *zap.Logger
-	transport         transport.Transport
-	mu                sync.Mutex
-	ctx               context.Context
-	responseTimeout   time.Duration
-	createTransaction func(*transport.ModbusFrame, transport.Transport) transport.ModbusTransaction
-	newModbusFrame    func(*transport.ModbusFrame, *transport.ProtocolDataUnit) *transport.ModbusFrame
+	logger          *zap.Logger
+	transport       transport.Transport
+	mu              sync.Mutex
+	ctx             context.Context
+	responseTimeout time.Duration
+	requestCreator  requestCreator
+}
+
+type requestCreator interface {
+	CreateTransaction(*transport.ModbusFrame, transport.Transport) transport.ModbusTransaction
+	NewModbusFrame(uint16, *transport.ProtocolDataUnit) *transport.ModbusFrame
 }
 
 func (m *modbusClient) sendRequestAndReadResponse(address uint16, req *transport.ProtocolDataUnit) (*transport.ModbusFrame, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	frame := m.newModbusFrame(srcFrame, req)
-	txn := m.createTransaction(frame, m.transport)
+	frame := m.requestCreator.NewModbusFrame(address, req)
+	txn := m.requestCreator.CreateTransaction(frame, m.transport)
 	m.logger.Debug("Sending modbus request", zap.Object("Frame", txn.Frame()))
 	return txn.Exchange(m.ctx)
 }

@@ -18,7 +18,7 @@ type modbusASCIITransport struct {
 	reader *bufio.Reader
 }
 
-func NewModbusASCIITransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
+func NewModbusTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
 	return &modbusASCIITransport{
 		logger: logger,
 		stream: stream,

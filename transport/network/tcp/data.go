@@ -9,11 +9,35 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type modbusApplicationDataUnit struct {
+type header struct {
 	transactionid []byte
 	protocolid    []byte
 	unitid        byte
-	pdu           *transport.ProtocolDataUnit
+}
+
+func (h header) TransactionID() []byte {
+	return h.transactionid
+}
+
+func (h header) ProtocolID() []byte {
+	return h.protocolid
+}
+
+func (h header) UnitID() byte {
+	return h.unitid
+}
+
+func (h header) Bytes() []byte {
+	bytes := make([]byte, 0)
+	bytes = append(bytes, h.transactionid...)
+	bytes = append(bytes, h.protocolid...)
+	bytes = append(bytes, h.unitid)
+	return bytes
+}
+
+type modbusApplicationDataUnit struct {
+	header transport.TCPHeader
+	pdu    *transport.ProtocolDataUnit
 }
 
 func (m modbusApplicationDataUnit) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
@@ -21,26 +45,26 @@ func (m modbusApplicationDataUnit) MarshalLogObject(encoder zapcore.ObjectEncode
 	return nil
 }
 
-func (a *modbusApplicationDataUnit) Address() uint16 {
-	return 0
+func (m *modbusApplicationDataUnit) Header() transport.Header {
+	return m.header
 }
 
-func (a *modbusApplicationDataUnit) PDU() *transport.ProtocolDataUnit {
-	return a.pdu
+func (m *modbusApplicationDataUnit) PDU() *transport.ProtocolDataUnit {
+	return m.pdu
 }
 
-func (a *modbusApplicationDataUnit) Checksum() transport.ErrorCheck {
+func (m *modbusApplicationDataUnit) Checksum() transport.ErrorCheck {
 	return transport.ErrorCheck{0x00}
 }
 
-func (a *modbusApplicationDataUnit) Bytes() []byte {
+func (m *modbusApplicationDataUnit) Bytes() []byte {
 	bytes := make([]byte, 0)
-	bytes = append(bytes, a.transactionid...)
-	bytes = append(bytes, a.protocolid...)
-	pduBytes := a.pdu.Bytes()
+	headerBytes := m.Header().Bytes()
+	bytes = append(bytes, headerBytes[:4]...)
+	pduBytes := m.pdu.Bytes()
 	length := uint16(len(pduBytes))
 	bytes = append(bytes, byte(length>>8), byte(length&0xFF))
-	bytes = append(bytes, a.unitid)
+	bytes = append(bytes, headerBytes[4:]...)
 	bytes = append(bytes, pduBytes...)
 
 	return bytes
@@ -60,10 +84,12 @@ func NewModbusRequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 	}
 	pdu := transport.NewProtocolDataUnit(functionCode, op)
 	adu := &modbusApplicationDataUnit{
-		transactionid: txId,
-		protocolid:    protoId,
-		unitid:        unitId,
-		pdu:           pdu,
+		header: &header{
+			transactionid: txId,
+			protocolid:    protoId,
+			unitid:        unitId,
+		},
+		pdu: pdu,
 	}
 	return &transport.ModbusFrame{
 		ApplicationDataUnit: adu,
@@ -71,14 +97,11 @@ func NewModbusRequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 	}, nil
 }
 
-func NewModbusFrame(frame *transport.ModbusFrame, response *transport.ProtocolDataUnit) *transport.ModbusFrame {
-	tcpFrame := frame.ApplicationDataUnit.(*modbusApplicationDataUnit)
+func NewModbusFrame(header transport.Header, response *transport.ProtocolDataUnit) *transport.ModbusFrame {
 	return &transport.ModbusFrame{
 		ApplicationDataUnit: &modbusApplicationDataUnit{
-			transactionid: tcpFrame.transactionid,
-			protocolid:    tcpFrame.protocolid,
-			unitid:        tcpFrame.unitid,
-			pdu:           response,
+			header: header.(transport.TCPHeader),
+			pdu:    response,
 		},
 	}
 }
@@ -97,10 +120,12 @@ func NewModbusTCPResponseFrame(packet []byte, valueCount uint16) (*transport.Mod
 	}
 	pdu := transport.NewProtocolDataUnit(functionCode, op)
 	adu := &modbusApplicationDataUnit{
-		transactionid: txId,
-		protocolid:    protoId,
-		unitid:        unitId,
-		pdu:           pdu,
+		header: &header{
+			transactionid: txId,
+			protocolid:    protoId,
+			unitid:        unitId,
+		},
+		pdu: pdu,
 	}
 	return &transport.ModbusFrame{
 		ApplicationDataUnit: adu,
@@ -143,7 +168,7 @@ func (m *modbusTransaction) Exchange(ctx context.Context) (*transport.ModbusFram
 }
 
 func (m *modbusTransaction) Write(pdu *transport.ProtocolDataUnit) error {
-	frame := m.frame.ResponseCreator(m.frame, pdu)
+	frame := m.frame.ResponseCreator(m.frame.Header(), pdu)
 	return m.transport.WriteFrame(frame)
 }
 

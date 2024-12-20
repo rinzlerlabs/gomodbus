@@ -17,23 +17,31 @@ type ModbusTransaction interface {
 	Exchange(context.Context) (*ModbusFrame, error)
 }
 
-// client...
-// txn := new ModbusTransaction(transport, request)
-// response, err := txn.Commit()
-//
-// server...
-// txn := new ModbusTransaction(transport, request)
-// response, err := txn.Commit()
-
 type ModbusFrame struct {
 	ApplicationDataUnit
-	ResponseCreator func(frame *ModbusFrame, response *ProtocolDataUnit) *ModbusFrame
+	ResponseCreator func(header Header, response *ProtocolDataUnit) *ModbusFrame
+}
+
+type Header interface {
+	Bytes() []byte
+}
+
+type SerialHeader interface {
+	Header
+	Address() uint16
+}
+
+type TCPHeader interface {
+	Header
+	TransactionID() []byte
+	ProtocolID() []byte
+	UnitID() byte
 }
 
 type ApplicationDataUnit interface {
 	zapcore.ObjectMarshaler
 	Bytes() []byte
-	Address() uint16
+	Header() Header
 	PDU() *ProtocolDataUnit
 	Checksum() ErrorCheck
 }
@@ -75,7 +83,7 @@ type modbusFrame struct {
 }
 
 func (m modbusFrame) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
-	encoder.AddUint16("Address", m.Address())
+	encoder.AddString("Header", EncodeToString(m.Header().Bytes()))
 	encoder.AddObject("PDU", m.PDU())
 	encoder.AddString("Checksum", EncodeToString(m.Checksum()))
 	return nil

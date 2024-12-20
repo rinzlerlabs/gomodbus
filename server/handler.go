@@ -50,7 +50,6 @@ func NewDefaultHandler(logger *zap.Logger, coilCount, discreteInputCount, holdin
 }
 
 func (h *DefaultHandler) Handle(txn transport.ModbusTransaction) error {
-	h.logger.Debug("Received packet", zap.Any("Packet", txn))
 	h.logger.Info("Received request", zap.Any("Operation", txn.Frame().PDU().Operation()))
 	var result data.ModbusOperation
 	var err error
