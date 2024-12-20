@@ -16,7 +16,7 @@ func NewModbusRTUClient(logger *zap.Logger, port serial.Port, responseTimeout ti
 
 func NewModbusRTUClientWithContext(ctx context.Context, logger *zap.Logger, port serial.Port, responseTimeout time.Duration) ModbusClient {
 	return &modbusClient{
-		transport:       rtu.NewModbusTransport(port, logger),
+		transport:       rtu.NewModbusClientTransport(port, logger),
 		logger:          logger,
 		ctx:             ctx,
 		responseTimeout: responseTimeout,
@@ -29,7 +29,7 @@ func NewModbusRTUClientWithContext(ctx context.Context, logger *zap.Logger, port
 
 func newModbusRTUClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) ModbusClient {
 	return &modbusClient{
-		transport:       rtu.NewModbusTransport(stream, logger),
+		transport:       rtu.NewModbusClientTransport(stream, logger),
 		logger:          logger,
 		ctx:             context.Background(),
 		responseTimeout: responseTimeout,

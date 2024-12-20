@@ -22,7 +22,7 @@ func NewModbusServerWithHandler(logger *zap.Logger, port sp.Port, serverAddress 
 		return nil, errors.New("handler is required")
 	}
 	internalPort := newRTUSerialPort(port)
-	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, rtu.NewModbusTransport(internalPort, logger))
+	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, rtu.NewModbusServerTransport(internalPort, logger, serverAddress))
 
 }
 
@@ -31,7 +31,7 @@ func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, s
 		return nil, errors.New("handler is required")
 	}
 
-	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, rtu.NewModbusTransport(stream, logger))
+	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, rtu.NewModbusServerTransport(stream, logger, serverAddress))
 
 }
 

@@ -2,12 +2,10 @@ package client
 
 import (
 	"context"
-	"io"
 	"net"
 	"time"
 
 	"github.com/rinzlerlabs/gomodbus/transport/network/tcp"
-	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"go.uber.org/zap"
 )
 
@@ -33,9 +31,9 @@ func NewModbusTCPClientWithContext(ctx context.Context, logger *zap.Logger, endp
 	}, nil
 }
 
-func newModbusTCPClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) ModbusClient {
+func newModbusTCPClient(logger *zap.Logger, stream tcp.ReadWriteCloseRemoteAddresser, responseTimeout time.Duration) ModbusClient {
 	return &modbusClient{
-		transport:       rtu.NewModbusTransport(stream, logger),
+		transport:       tcp.NewModbusTransport(stream, logger),
 		logger:          logger,
 		ctx:             context.Background(),
 		responseTimeout: responseTimeout,

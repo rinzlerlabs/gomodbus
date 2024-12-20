@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type readWriteCloseRemoteAddresser interface {
+type ReadWriteCloseRemoteAddresser interface {
 	io.ReadWriteCloser
 	RemoteAddr() net.Addr
 }
@@ -18,7 +18,7 @@ type readWriteCloseRemoteAddresser interface {
 type modbusTCPSocketTransport struct {
 	logger *zap.Logger
 	mu     sync.Mutex
-	conn   readWriteCloseRemoteAddresser
+	conn   ReadWriteCloseRemoteAddresser
 }
 
 func (m *modbusTCPSocketTransport) readRawFrame(context.Context) ([]byte, error) {
@@ -100,7 +100,7 @@ func (m *modbusTCPSocketTransport) WriteFrame(frame *transport.ModbusFrame) erro
 	return err
 }
 
-func NewModbusTransport(conn readWriteCloseRemoteAddresser, logger *zap.Logger) transport.Transport {
+func NewModbusTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Logger) transport.Transport {
 	return &modbusTCPSocketTransport{
 		logger: logger,
 		conn:   conn,
