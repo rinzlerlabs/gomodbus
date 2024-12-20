@@ -3,21 +3,22 @@ package server
 import (
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
+	"github.com/rinzlerlabs/gomodbus/transport"
 	"go.uber.org/zap"
 )
 
 // RequestHandler is the interface that wraps the basic Modbus functions.
 // TODO: Merge single and multiple requests into one.
 type RequestHandler interface {
-	Handle(op data.ModbusFrame) error
-	ReadCoils(request *data.ReadCoilsRequest) (response *data.ReadCoilsResponse, err error)
-	ReadDiscreteInputs(request *data.ReadDiscreteInputsRequest) (response *data.ReadDiscreteInputsResponse, err error)
-	ReadHoldingRegisters(request *data.ReadHoldingRegistersRequest) (response *data.ReadHoldingRegistersResponse, err error)
-	ReadInputRegisters(request *data.ReadInputRegistersRequest) (response *data.ReadInputRegistersResponse, err error)
-	WriteSingleCoil(equest *data.WriteSingleCoilRequest) (response *data.WriteSingleCoilResponse, err error)
-	WriteSingleRegister(request *data.WriteSingleRegisterRequest) (response *data.WriteSingleRegisterResponse, err error)
-	WriteMultipleCoils(request *data.WriteMultipleCoilsRequest) (response *data.WriteMultipleCoilsResponse, err error)
-	WriteMultipleRegisters(request *data.WriteMultipleRegistersRequest) (response *data.WriteMultipleRegistersResponse, err error)
+	Handle(op transport.ModbusTransaction) error
+	ReadCoils(request data.ModbusOperation) (response data.ModbusReadOperation[[]bool], err error)
+	ReadDiscreteInputs(request data.ModbusOperation) (response *data.ReadDiscreteInputsResponse, err error)
+	ReadHoldingRegisters(request data.ModbusOperation) (response *data.ReadHoldingRegistersResponse, err error)
+	ReadInputRegisters(request data.ModbusOperation) (response *data.ReadInputRegistersResponse, err error)
+	WriteSingleCoil(equest data.ModbusOperation) (response *data.WriteSingleCoilResponse, err error)
+	WriteSingleRegister(request data.ModbusOperation) (response *data.WriteSingleRegisterResponse, err error)
+	WriteMultipleCoils(request data.ModbusOperation) (response *data.WriteMultipleCoilsResponse, err error)
+	WriteMultipleRegisters(request data.ModbusOperation) (response *data.WriteMultipleRegistersResponse, err error)
 }
 
 type DefaultHandler struct {
@@ -48,209 +49,115 @@ func NewDefaultHandler(logger *zap.Logger, coilCount, discreteInputCount, holdin
 	}
 }
 
-func (h *DefaultHandler) Handle(request data.ModbusFrame) error {
-	h.logger.Debug("Received packet", zap.Any("packet", request))
-	var response *data.ProtocolDataUnit
-	switch request.PDU().Function {
+func (h *DefaultHandler) Handle(txn transport.ModbusTransaction) error {
+	h.logger.Info("Received request", zap.Any("Operation", txn.Frame().PDU().Operation()))
+	var result data.ModbusOperation
+	var err error
+	switch txn.Frame().PDU().FunctionCode() {
 	case data.ReadCoils:
 		// Read Coils
-		req, err := newReadCoilsRequest(request)
-		if err != nil {
-			h.logger.Error("Failed to parse Read Coils request, discarding packet", zap.Error(err))
-			return err
-		}
-		h.logger.Info("Received Read Coils request", zap.Any("request", req))
-		result, err := h.ReadCoils(req)
-		if err != nil {
-			h.logger.Error("Failed to handle Read Coils request", zap.Error(err))
-			return err
-		}
-		h.logger.Debug("Read coil successful", zap.Any("result", result))
-		response = &data.ProtocolDataUnit{Function: data.ReadCoils, Data: result.Bytes()}
+		result, err = h.ReadCoils(txn.Frame().PDU().Operation())
 	case data.ReadDiscreteInputs:
 		// Read Discrete Inputs
-		req, err := newReadDiscreteInputsRequest(request)
-		if err != nil {
-			h.logger.Error("Failed to parse Read Discrete Inputs request, discarding packet", zap.Error(err))
-			return err
-		}
-		h.logger.Info("Received Read Discrete Inputs request", zap.Any("request", req))
-		result, err := h.ReadDiscreteInputs(req)
-		if err != nil {
-			h.logger.Error("Failed to handle Read Discrete Inputs request", zap.Error(err))
-			return err
-		}
-		h.logger.Debug("Read Discrete Inputs successful", zap.Any("result", result))
-		response = &data.ProtocolDataUnit{Function: data.ReadDiscreteInputs, Data: result.Bytes()}
+		result, err = h.ReadDiscreteInputs(txn.Frame().PDU().Operation())
 	case data.ReadHoldingRegisters:
 		// Read Holding Registers
-		req, err := newReadHoldingRegistersRequest(request)
-		if err != nil {
-			h.logger.Error("Failed to parse Read Holding Registers request, discarding packet", zap.Error(err))
-			return err
-		}
-		h.logger.Info("Received Read Holding Registers request", zap.Any("request", req))
-		result, err := h.ReadHoldingRegisters(req)
-		if err != nil {
-			h.logger.Error("Failed to handle Read Holding Registers request", zap.Error(err))
-			return err
-		}
-		h.logger.Debug("Read Holding Registers successful", zap.Any("result", result))
-		response = &data.ProtocolDataUnit{Function: data.ReadHoldingRegisters, Data: result.Bytes()}
+		result, err = h.ReadHoldingRegisters(txn.Frame().PDU().Operation())
 	case data.ReadInputRegisters:
 		// Read Input Registers
-		req, err := newReadInputRegistersRequest(request)
-		if err != nil {
-			h.logger.Error("Failed to parse Read Input Registers request, discarding packet", zap.Error(err))
-			return err
-		}
-		h.logger.Info("Received Read Input Registers request", zap.Any("request", req))
-		result, err := h.ReadInputRegisters(req)
-		if err != nil {
-			h.logger.Error("Failed to handle Read Input Registers request", zap.Error(err))
-			return err
-		}
-		h.logger.Debug("Read Input Registers successful", zap.Any("result", result))
-		response = &data.ProtocolDataUnit{Function: data.ReadInputRegisters, Data: result.Bytes()}
+		result, err = h.ReadInputRegisters(txn.Frame().PDU().Operation())
 	case data.WriteSingleCoil:
 		// Write Single Coil
-		req, err := newWriteSingleCoilRequest(request)
-		if err != nil {
-			h.logger.Error("Failed to parse Write Single Coil request, discarding packet", zap.Error(err))
-			return err
-		}
-		h.logger.Info("Received Write Single Coil request", zap.Any("request", req))
-		result, err := h.WriteSingleCoil(req)
-		if err != nil {
-			h.logger.Error("Failed to handle Write Single Coil request", zap.Error(err))
-			return err
-		}
-		h.logger.Debug("Write Single Coil successful", zap.Any("result", result))
-		response = &data.ProtocolDataUnit{Function: data.WriteSingleCoil, Data: result.Bytes()}
+		result, err = h.WriteSingleCoil(txn.Frame().PDU().Operation())
 	case data.WriteSingleRegister:
 		// Write Single Register
-		req, err := newWriteSingleRegisterRequest(request)
-		if err != nil {
-			h.logger.Error("Failed to parse Write Single Register request, discarding packet", zap.Error(err))
-			return err
-		}
-		h.logger.Info("Received Write Single Register request", zap.Any("request", req))
-		result, err := h.WriteSingleRegister(req)
-		if err != nil {
-			h.logger.Error("Failed to handle Write Single Register request", zap.Error(err))
-			return err
-		}
-		h.logger.Debug("Write Single Register successful", zap.Any("result", result))
-		response = &data.ProtocolDataUnit{Function: data.WriteSingleRegister, Data: result.Bytes()}
+		result, err = h.WriteSingleRegister(txn.Frame().PDU().Operation())
 	case data.WriteMultipleCoils:
 		// Write Multiple Coils
-		req, err := newWriteMultipleCoilsRequest(request)
-		if err != nil {
-			h.logger.Error("Failed to parse Write Multiple Coils request, discarding packet", zap.Error(err))
-			return err
-		}
-		h.logger.Info("Received Write Multiple Coils request", zap.Any("request", req))
-		result, err := h.WriteMultipleCoils(req)
-		if err != nil {
-			h.logger.Error("Failed to handle Write Multiple Coils request", zap.Error(err))
-			return err
-		}
-		h.logger.Debug("Write Multiple Coils successful", zap.Any("result", result))
-		response = &data.ProtocolDataUnit{Function: data.WriteMultipleCoils, Data: result.Bytes()}
+		result, err = h.WriteMultipleCoils(txn.Frame().PDU().Operation())
 	case data.WriteMultipleRegisters:
 		// Write Multiple Registers
-		req, err := newWriteMultipleRegistersRequest(request)
-		if err != nil {
-			h.logger.Error("Failed to parse Write Multiple Registers request, discarding packet", zap.Error(err))
-			return err
-		}
-		h.logger.Info("Received Write Multiple Registers request", zap.Any("request", req))
-		result, err := h.WriteMultipleRegisters(req)
-		if err != nil {
-			h.logger.Error("Failed to handle Write Multiple Registers request", zap.Error(err))
-			return err
-		}
-		h.logger.Debug("Write Multiple Registers successful", zap.Any("result", result))
-		response = &data.ProtocolDataUnit{Function: data.WriteMultipleRegisters, Data: result.Bytes()}
+		result, err = h.WriteMultipleRegisters(txn.Frame().PDU().Operation())
 	default:
-		h.logger.Debug("Received packet with unknown function code, discarding packet", zap.Any("packet", request))
+		h.logger.Debug("Received packet with unknown function code, discarding packet", zap.Any("packet", txn))
 		return common.ErrUnknownFunctionCode
 	}
-	h.logger.Info("Request handled successfully", zap.Any("response", response))
-	// Send response
-	return request.SendResponse(response)
+	if err != nil {
+		h.logger.Error("Failed to handle request", zap.Error(err))
+		return err
+	}
+	h.logger.Info("Request handled successfully", zap.Any("response", result))
+	return txn.Write(transport.NewProtocolDataUnit(txn.Frame().PDU().FunctionCode(), result))
 }
 
-func (h *DefaultHandler) ReadCoils(request *data.ReadCoilsRequest) (response *data.ReadCoilsResponse, err error) {
-	h.logger.Debug("ReadCoils", zap.Uint16("Offset", request.Offset), zap.Uint16("Count", request.Count))
-	start := 1 + request.Offset
-	end := 1 + request.Offset + request.Count
+func getRange(offset, count uint16) (uint16, uint16) {
+	start := offset + 1
+	end := 1 + offset + count
+	return start, end
+}
+
+func (h *DefaultHandler) ReadCoils(operation data.ModbusOperation) (response data.ModbusReadOperation[[]bool], err error) {
+	op := operation.(*data.ReadCoilsRequest)
+	h.logger.Debug("ReadCoils", zap.Uint16("Offset", op.Offset), zap.Uint16("Count", op.Count))
+	start, end := getRange(op.Offset, op.Count)
 	results := h.Coils[start:end]
-	return &data.ReadCoilsResponse{Values: results}, nil
+	return data.NewReadCoilsResponse(results), nil
 }
 
-func (h *DefaultHandler) ReadDiscreteInputs(request *data.ReadDiscreteInputsRequest) (response *data.ReadDiscreteInputsResponse, err error) {
-	h.logger.Debug("ReadDiscreteInputs", zap.Uint16("Offset", request.Offset), zap.Uint16("Count", request.Count))
-	start := 1 + request.Offset
-	end := 1 + request.Offset + request.Count
+func (h *DefaultHandler) ReadDiscreteInputs(operation data.ModbusOperation) (response *data.ReadDiscreteInputsResponse, err error) {
+	op := operation.(*data.ReadDiscreteInputsRequest)
+	h.logger.Debug("ReadDiscreteInputs", zap.Uint16("Offset", op.Offset), zap.Uint16("Count", op.Count))
+	start, end := getRange(op.Offset, op.Count)
 	results := h.DiscreteInputs[start:end]
-	return &data.ReadDiscreteInputsResponse{Values: results}, nil
+	return data.NewReadDiscreteInputsResponse(results), nil
 }
 
-func (h *DefaultHandler) ReadHoldingRegisters(request *data.ReadHoldingRegistersRequest) (response *data.ReadHoldingRegistersResponse, err error) {
-	h.logger.Debug("ReadHoldingRegisters", zap.Uint16("Offset", request.Offset), zap.Uint16("Count", request.Count))
-	start := 1 + request.Offset
-	end := 1 + request.Offset + request.Count
+func (h *DefaultHandler) ReadHoldingRegisters(operation data.ModbusOperation) (response *data.ReadHoldingRegistersResponse, err error) {
+	op := operation.(*data.ReadHoldingRegistersRequest)
+	h.logger.Debug("ReadHoldingRegisters", zap.Uint16("Offset", op.Offset), zap.Uint16("Count", op.Count))
+	start, end := getRange(op.Offset, op.Count)
 	results := h.HoldingRegisters[start:end]
-	return &data.ReadHoldingRegistersResponse{Values: results}, nil
+	return data.NewReadHoldingRegistersResponse(results), nil
 }
 
-func (h *DefaultHandler) ReadInputRegisters(request *data.ReadInputRegistersRequest) (response *data.ReadInputRegistersResponse, err error) {
-	h.logger.Debug("ReadInputRegisters", zap.Uint16("Offset", request.Offset), zap.Uint16("Count", request.Count))
-	start := 1 + request.Offset
-	end := 1 + request.Offset + request.Count
+func (h *DefaultHandler) ReadInputRegisters(operation data.ModbusOperation) (response *data.ReadInputRegistersResponse, err error) {
+	op := operation.(*data.ReadInputRegistersRequest)
+	h.logger.Debug("ReadInputRegisters", zap.Uint16("Offset", op.Offset), zap.Uint16("Count", op.Count))
+	start, end := getRange(op.Offset, op.Count)
 	results := h.InputRegisters[start:end]
-	return &data.ReadInputRegistersResponse{Values: results}, nil
+	return data.NewReadInputRegistersResponse(results), nil
 }
 
-func (h *DefaultHandler) WriteSingleCoil(request *data.WriteSingleCoilRequest) (response *data.WriteSingleCoilResponse, err error) {
-	h.logger.Debug("WriteSingleCoil", zap.Uint16("Offset", request.Offset), zap.Bool("Value", request.Value))
-	h.Coils[request.Offset+1] = request.Value
-	return &data.WriteSingleCoilResponse{
-		Offset: request.Offset,
-		Value:  request.Value,
-	}, nil
+func (h *DefaultHandler) WriteSingleCoil(operation data.ModbusOperation) (response *data.WriteSingleCoilResponse, err error) {
+	op := operation.(*data.WriteSingleCoilRequest)
+	h.logger.Debug("WriteSingleCoil", zap.Uint16("Offset", op.Offset), zap.Bool("Value", op.Value))
+	h.Coils[op.Offset+1] = op.Value
+	return data.NewWriteSingleCoilResponse(op.Offset, op.Value), nil
 }
 
-func (h *DefaultHandler) WriteSingleRegister(request *data.WriteSingleRegisterRequest) (response *data.WriteSingleRegisterResponse, err error) {
-	h.logger.Debug("WriteSingleRegister", zap.Uint16("Offset", request.Offset), zap.Uint16("Value", request.Value))
-	h.HoldingRegisters[request.Offset+1] = request.Value
-	return &data.WriteSingleRegisterResponse{
-		Offset: request.Offset,
-		Value:  request.Value,
-	}, nil
+func (h *DefaultHandler) WriteSingleRegister(operation data.ModbusOperation) (response *data.WriteSingleRegisterResponse, err error) {
+	op := operation.(*data.WriteSingleRegisterRequest)
+	h.logger.Debug("WriteSingleRegister", zap.Uint16("Offset", op.Offset), zap.Uint16("Value", op.Value))
+	h.HoldingRegisters[op.Offset+1] = op.Value
+	return data.NewWriteSingleRegisterResponse(op.Offset, op.Value), nil
 }
 
-func (h *DefaultHandler) WriteMultipleCoils(request *data.WriteMultipleCoilsRequest) (response *data.WriteMultipleCoilsResponse, err error) {
-	h.logger.Debug("WriteMultipleCoils", zap.Uint16("Offset", request.Offset), zap.Bools("Values", request.Values))
-	start := 1 + request.Offset
-	for i, v := range request.Values {
+func (h *DefaultHandler) WriteMultipleCoils(operation data.ModbusOperation) (response *data.WriteMultipleCoilsResponse, err error) {
+	op := operation.(*data.WriteMultipleCoilsRequest)
+	h.logger.Debug("WriteMultipleCoils", zap.Uint16("Offset", op.Offset), zap.Bools("Values", op.Values))
+	start, _ := getRange(op.Offset, uint16(len(op.Values)))
+	for i, v := range op.Values {
 		h.Coils[start+uint16(i)] = v
 	}
-	return &data.WriteMultipleCoilsResponse{
-		Offset: request.Offset,
-		Count:  uint16(len(request.Values)),
-	}, nil
+	return data.NewWriteMultipleCoilsResponse(op.Offset, uint16(len(op.Values))), nil
 }
 
-func (h *DefaultHandler) WriteMultipleRegisters(request *data.WriteMultipleRegistersRequest) (response *data.WriteMultipleRegistersResponse, err error) {
-	h.logger.Debug("WriteMultipleRegisters", zap.Uint16("Offset", request.Offset), zap.Uint16s("Values", request.Values))
-	start := 1 + request.Offset
-	for i, v := range request.Values {
+func (h *DefaultHandler) WriteMultipleRegisters(operation data.ModbusOperation) (response *data.WriteMultipleRegistersResponse, err error) {
+	op := operation.(*data.WriteMultipleRegistersRequest)
+	h.logger.Debug("WriteMultipleRegisters", zap.Uint16("Offset", op.Offset), zap.Uint16s("Values", op.Values))
+	start, _ := getRange(op.Offset, uint16(len(op.Values)))
+	for i, v := range op.Values {
 		h.HoldingRegisters[start+uint16(i)] = v
 	}
-	return &data.WriteMultipleRegistersResponse{
-		Offset: request.Offset,
-		Count:  uint16(len(request.Values)),
-	}, nil
+	return data.NewWriteMultipleRegistersResponse(op.Offset, uint16(len(op.Values))), nil
 }

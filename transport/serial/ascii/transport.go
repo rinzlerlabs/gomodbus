@@ -7,7 +7,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"go.uber.org/zap"
 )
@@ -19,7 +18,7 @@ type modbusASCIITransport struct {
 	reader *bufio.Reader
 }
 
-func NewModbusASCIITransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
+func NewModbusTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
 	return &modbusASCIITransport{
 		logger: logger,
 		stream: stream,
@@ -27,15 +26,7 @@ func NewModbusASCIITransport(stream io.ReadWriteCloser, logger *zap.Logger) tran
 	}
 }
 
-func NewModbusASCIIClientTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
-	return &modbusASCIITransport{
-		logger: logger,
-		stream: stream,
-		reader: bufio.NewReader(stream),
-	}
-}
-
-func (t *modbusASCIITransport) ReadNextRawFrame(ctx context.Context) ([]byte, error) {
+func (t *modbusASCIITransport) readRawFrame(context.Context) ([]byte, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	str, err := t.reader.ReadString('\n')
@@ -45,30 +36,35 @@ func (t *modbusASCIITransport) ReadNextRawFrame(ctx context.Context) ([]byte, er
 	return []byte(str), nil
 }
 
-func (t *modbusASCIITransport) ReadNextFrame(ctx context.Context) (data.ModbusFrame, error) {
-	str, err := t.ReadNextRawFrame(ctx)
+func (t *modbusASCIITransport) AcceptRequest(ctx context.Context) (transport.ModbusTransaction, error) {
+	data, err := t.readRawFrame(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return NewModbusFrame(str, t)
+
+	frame, err := NewModbusRequestFrame(data)
+	if err != nil {
+		return nil, err
+	}
+	return NewModbusTransaction(frame, t), nil
 }
 
-func (t *modbusASCIITransport) WriteRawFrame(data []byte) error {
+func (t *modbusASCIITransport) WriteFrame(frame *transport.ModbusFrame) error {
+	_, err := t.Write([]byte(fmt.Sprintf(":%X\r\n", frame.Bytes())))
+	return err
+}
+
+func (t *modbusASCIITransport) Write(p []byte) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	n, err := t.stream.Write(data)
+	n, err := t.stream.Write(p)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	if n < len(data) {
-		return io.ErrShortWrite
+	if n < len(p) {
+		return n, io.ErrShortWrite
 	}
-	return nil
-}
-
-func (t *modbusASCIITransport) WriteFrame(adu data.ModbusFrame) error {
-	bytes := adu.Bytes()
-	return t.WriteRawFrame([]byte(fmt.Sprintf(":%X\r\n", bytes)))
+	return n, nil
 }
 
 func (t *modbusASCIITransport) Flush(ctx context.Context) error {

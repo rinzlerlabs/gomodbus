@@ -16,20 +16,26 @@ func NewModbusRTUClient(logger *zap.Logger, port serial.Port, responseTimeout ti
 
 func NewModbusRTUClientWithContext(ctx context.Context, logger *zap.Logger, port serial.Port, responseTimeout time.Duration) ModbusClient {
 	return &modbusClient{
-		transport:       rtu.NewModbusRTUClientTransport(port, logger),
+		transport:       rtu.NewModbusTransport(port, logger),
 		logger:          logger,
 		ctx:             ctx,
 		responseTimeout: responseTimeout,
-		aduFromRequest:  newRTUApplicationDataUnitFromModbusRequest,
+		requestCreator: &serialRequestCreator{
+			newModbusFrame:    rtu.NewModbusFrame,
+			createTransaction: rtu.NewModbusTransaction,
+		},
 	}
 }
 
 func newModbusRTUClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) ModbusClient {
 	return &modbusClient{
-		transport:       rtu.NewModbusRTUClientTransport(stream, logger),
+		transport:       rtu.NewModbusTransport(stream, logger),
 		logger:          logger,
 		ctx:             context.Background(),
 		responseTimeout: responseTimeout,
-		aduFromRequest:  newRTUApplicationDataUnitFromModbusRequest,
+		requestCreator: &serialRequestCreator{
+			newModbusFrame:    rtu.NewModbusFrame,
+			createTransaction: rtu.NewModbusTransaction,
+		},
 	}
 }

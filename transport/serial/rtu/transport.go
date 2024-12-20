@@ -14,22 +14,22 @@ import (
 	"go.uber.org/zap"
 )
 
-type modbusRTUServerTransport struct {
+type modbusRTUTransport struct {
 	logger *zap.Logger
 	mu     sync.Mutex
 	stream io.ReadWriteCloser
 	reader *bufio.Reader
 }
 
-func NewModbusRTUServerTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
-	return &modbusRTUServerTransport{
+func NewModbusTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
+	return &modbusRTUTransport{
 		logger: logger,
 		stream: stream,
 		reader: bufio.NewReader(stream),
 	}
 }
 
-func (t *modbusRTUServerTransport) ReadNextRawFrame(ctx context.Context) ([]byte, error) {
+func (t *modbusRTUTransport) readRequestFrame(ctx context.Context) ([]byte, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	read := 0
@@ -118,81 +118,7 @@ func (t *modbusRTUServerTransport) ReadNextRawFrame(ctx context.Context) ([]byte
 	}
 }
 
-func (t *modbusRTUServerTransport) ReadNextFrame(ctx context.Context) (data.ModbusFrame, error) {
-	data, err := t.ReadNextRawFrame(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return NewModbusFrame(data, t)
-}
-
-func (t *modbusRTUServerTransport) WriteRawFrame(data []byte) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	n, err := t.stream.Write(data)
-	if err != nil {
-		return err
-	}
-	if n < len(data) {
-		return io.ErrShortWrite
-	}
-	return nil
-}
-
-func (t *modbusRTUServerTransport) WriteFrame(data data.ModbusFrame) error {
-	return t.WriteRawFrame(data.Bytes())
-}
-
-func (t *modbusRTUServerTransport) Flush(ctx context.Context) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	timeoutStart := time.Now()
-	flushedByteCount := 0
-	for {
-		start := time.Now()
-		_, _ = t.reader.ReadByte()
-		readTime := time.Since(start)
-		if readTime > 20*time.Millisecond {
-			t.reader.UnreadByte()
-			t.logger.Debug("Flushed", zap.Int("bytesFlushed", flushedByteCount))
-			return nil
-		}
-		flushedByteCount++
-		if time.Since(timeoutStart) > 5*time.Second {
-			t.logger.Error("Failed to find packet start")
-			return common.ErrTimeout
-		}
-	}
-}
-
-func (t *modbusRTUServerTransport) Close() error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	stream := t.stream
-	t.stream = nil
-	t.reader = nil
-	if stream != nil {
-		return stream.Close()
-	}
-	return nil
-}
-
-type modbusRTUClientTransport struct {
-	logger *zap.Logger
-	mu     sync.Mutex
-	stream io.ReadWriteCloser
-	reader *bufio.Reader
-}
-
-func NewModbusRTUClientTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
-	return &modbusRTUClientTransport{
-		logger: logger,
-		stream: stream,
-		reader: bufio.NewReader(stream),
-	}
-}
-
-func (t *modbusRTUClientTransport) ReadNextRawFrame(ctx context.Context) ([]byte, error) {
+func (t *modbusRTUTransport) readResponseFrame(ctx context.Context) ([]byte, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	read := 0
@@ -267,32 +193,38 @@ func (t *modbusRTUClientTransport) ReadNextRawFrame(ctx context.Context) ([]byte
 	return bytes[:read], nil
 }
 
-func (t *modbusRTUClientTransport) ReadNextFrame(ctx context.Context) (data.ModbusFrame, error) {
-	data, err := t.ReadNextRawFrame(ctx)
+func (t *modbusRTUTransport) AcceptRequest(ctx context.Context) (transport.ModbusTransaction, error) {
+	data, err := t.readRequestFrame(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return NewModbusFrame(data, t)
+
+	frame, err := NewModbusRTURequestFrame(data)
+	if err != nil {
+		return nil, err
+	}
+	return NewModbusTransaction(frame, t), nil
 }
 
-func (t *modbusRTUClientTransport) WriteRawFrame(data []byte) error {
+func (t *modbusRTUTransport) WriteFrame(data *transport.ModbusFrame) error {
+	_, err := t.Write(data.Bytes())
+	return err
+}
+
+func (t *modbusRTUTransport) Write(p []byte) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	n, err := t.stream.Write(data)
+	n, err := t.stream.Write(p)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	if n < len(data) {
-		return io.ErrShortWrite
+	if n < len(p) {
+		return n, io.ErrShortWrite
 	}
-	return nil
+	return n, nil
 }
 
-func (t *modbusRTUClientTransport) WriteFrame(data data.ModbusFrame) error {
-	return t.WriteRawFrame(data.Bytes())
-}
-
-func (t *modbusRTUClientTransport) Flush(ctx context.Context) error {
+func (t *modbusRTUTransport) Flush(ctx context.Context) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	timeoutStart := time.Now()
@@ -314,7 +246,7 @@ func (t *modbusRTUClientTransport) Flush(ctx context.Context) error {
 	}
 }
 
-func (t *modbusRTUClientTransport) Close() error {
+func (t *modbusRTUTransport) Close() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	stream := t.stream
