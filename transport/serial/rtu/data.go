@@ -7,6 +7,7 @@ import (
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/rinzlerlabs/gomodbus/transport/serial"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -154,6 +155,7 @@ func (m *modbusTransaction) Exchange(ctx context.Context) (*transport.ModbusFram
 
 func (m *modbusTransaction) Write(pdu *transport.ProtocolDataUnit) error {
 	frame := m.frame.ResponseCreator(m.frame.Header(), pdu)
+	m.transport.logger.Info("Response", zap.Object("Frame", frame))
 	return m.transport.WriteFrame(frame)
 }
 

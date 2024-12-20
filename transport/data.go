@@ -18,11 +18,20 @@ type ModbusTransaction interface {
 }
 
 type ModbusFrame struct {
+	zapcore.ObjectMarshaler
 	ApplicationDataUnit
 	ResponseCreator func(header Header, response *ProtocolDataUnit) *ModbusFrame
 }
 
+func (frame ModbusFrame) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
+	encoder.AddObject("Header", frame.Header())
+	encoder.AddObject("PDU", frame.PDU())
+	encoder.AddString("Checksum", EncodeToString(frame.Checksum()))
+	return nil
+}
+
 type Header interface {
+	zapcore.ObjectMarshaler
 	Bytes() []byte
 }
 
@@ -64,7 +73,7 @@ func (pdu *ProtocolDataUnit) Operation() data.ModbusOperation {
 
 func (pdu ProtocolDataUnit) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
 	encoder.AddUint16("Function", uint16(pdu.functionCode))
-	encoder.AddString("Data", EncodeToString(pdu.op.Bytes()))
+	encoder.AddObject("Operation", pdu.op)
 	return nil
 }
 

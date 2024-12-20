@@ -90,7 +90,7 @@ start:
 			copy(bytes[read:read+n], d[:n])
 			read += n
 		}
-		t.logger.Debug("ReadRequestFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
+		t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
 		return bytes[:8], nil
 	case data.WriteMultipleCoils, data.WriteMultipleRegisters:
 		// These functions have a variable length, so we need to read the length byte
@@ -155,7 +155,7 @@ start:
 			copy(bytes[read:read+n], d)
 			read += n
 		}
-		t.logger.Debug("ReadRequestFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
+		t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
 		return bytes[:bytesNeeded], nil
 	default:
 		// This likely means we have a timing error, so we discard the packet
@@ -245,6 +245,7 @@ func (t *modbusRTUTransport) readResponseFrame(ctx context.Context) ([]byte, err
 	default:
 		return nil, common.ErrUnsupportedFunctionCode
 	}
+	t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
 	return bytes[:read], nil
 }
 

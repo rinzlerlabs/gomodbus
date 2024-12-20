@@ -50,7 +50,7 @@ func NewDefaultHandler(logger *zap.Logger, coilCount, discreteInputCount, holdin
 }
 
 func (h *DefaultHandler) Handle(txn transport.ModbusTransaction) error {
-	h.logger.Info("Received request", zap.Any("Operation", txn.Frame().PDU().Operation()))
+	h.logger.Info("Request", zap.Object("Frame", txn.Frame()))
 	var result data.ModbusOperation
 	var err error
 	switch txn.Frame().PDU().FunctionCode() {
@@ -86,8 +86,9 @@ func (h *DefaultHandler) Handle(txn transport.ModbusTransaction) error {
 		h.logger.Error("Failed to handle request", zap.Error(err))
 		return err
 	}
-	h.logger.Info("Request handled successfully", zap.Any("response", result))
-	return txn.Write(transport.NewProtocolDataUnit(txn.Frame().PDU().FunctionCode(), result))
+	pdu := transport.NewProtocolDataUnit(txn.Frame().PDU().FunctionCode(), result)
+	h.logger.Debug("Response", zap.Object("PDU", pdu))
+	return txn.Write(pdu)
 }
 
 func getRange(offset, count uint16) (uint16, uint16) {
