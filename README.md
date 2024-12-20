@@ -6,7 +6,7 @@ _Note: RTU implementation does not follow strict timing requirements due to limi
 
 ## Client
 
-Creating a Modbus client is as simple as calling `NewModbusXXXClient`, where `XXX` is the type you want. In the future, clients will be in their own packages, just like the server is setup. Clients expose the standard Modbus functions. Due to how the Modbus TCP/UDP protocols work, the `address` parameter on these methods has no effect.
+Creating a Modbus client is as simple as calling `<type>.NewModbusClient`. Replace `<type>` with the transport you want to use, ex: `tcp`, `rtu`, or `ascii`. Clients expose the standard Modbus functions. Due to how the Modbus TCP/UDP protocols work, the `address` parameter on these methods has no effect.
 
 ## Server
 

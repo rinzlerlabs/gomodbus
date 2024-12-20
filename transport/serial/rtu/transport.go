@@ -122,11 +122,6 @@ start:
 				goto start
 			}
 		} else if functionCode == data.WriteMultipleCoils {
-			// The byte count must be a multiple of 8
-			if byteCount%8 != 0 {
-				t.logger.Debug("Invalid byte count for WriteMultipleCoils, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))
-				goto start
-			}
 			registerCount := uint16(bytes[4])<<8 | uint16(bytes[5])
 			if byteCount != int(registerCount/8) {
 				t.logger.Debug("Invalid byte count for WriteMultipleCoils, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))

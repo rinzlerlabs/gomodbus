@@ -1,2 +1,2 @@
-# Modbus RTU Client
+# Modbus RTU Server
 

@@ -18,7 +18,7 @@ func main() {
 	handler.(*server.DefaultHandler).Coils[0] = true
 	handler.(*server.DefaultHandler).Coils[8] = true
 	handler.(*server.DefaultHandler).Coils[15] = true
-	server, err := tcp.NewModbusServerWithHandler(logger, ":8502", handler)
+	server, err := tcp.NewModbusServerWithHandler(logger, ":502", handler)
 	if err != nil {
 		panic(err)
 	}

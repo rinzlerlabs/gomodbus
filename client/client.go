@@ -32,6 +32,16 @@ type ModbusClient interface {
 	WriteMultipleRegisters(address, offset uint16, values []uint16) error
 }
 
+func NewModbusClient(ctx context.Context, logger *zap.Logger, transport transport.Transport, requestCreator requestCreator, responseTimeout time.Duration) ModbusClient {
+	return &modbusClient{
+		logger:          logger,
+		transport:       transport,
+		ctx:             ctx,
+		responseTimeout: responseTimeout,
+		requestCreator:  requestCreator,
+	}
+}
+
 type modbusClient struct {
 	logger          *zap.Logger
 	transport       transport.Transport

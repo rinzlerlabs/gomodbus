@@ -1,6 +1,7 @@
-package client
+package rtu
 
 import (
+	"io"
 	"testing"
 	"time"
 
@@ -9,32 +10,49 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestASCIIReadCoils(t *testing.T) {
+type testSerialPort struct {
+	readData  []byte
+	writeData []byte
+}
+
+func (t *testSerialPort) Read(b []byte) (n int, err error) {
+	if len(t.readData) == 0 {
+		return 0, io.EOF
+	}
+	lenRead := copy(b, t.readData)
+	t.readData = t.readData[lenRead:]
+	return lenRead, nil
+}
+
+func (t *testSerialPort) Write(b []byte) (n int, err error) {
+	t.writeData = b
+	return len(b), nil
+}
+
+func (t *testSerialPort) Close() error {
+	return nil
+}
+
+func TestRTUReadCoils(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
-		toServer        string
+		toServer        []byte
 		coils           []bool
 		fromServerError error
-		fromServer      string
+		fromServer      []byte
 	}{
 		{
 			name:       "Valid",
-			toServer:   ":0401000A000DE4\r\n",
+			toServer:   []byte{0x04, 0x01, 0x00, 0x0A, 0x00, 0x0D, 0xDD, 0x98},
 			coils:      []bool{false, true, false, true, false, false, false, false, true, false, false, false, true},
-			fromServer: ":0401020A11DE\r\n",
-		},
-		{
-			name:            "Exception",
-			toServer:        ":0401000A000DE4\r\n",
-			fromServer:      ":04810279\r\n",
-			fromServerError: common.ErrIllegalDataAddress,
+			fromServer: []byte{0x04, 0x01, 0x02, 0x0A, 0x11, 0xB3, 0x50},
 		},
 		{
 			name:            "InvalidRequest_IvalidChecksum",
-			toServer:        ":0401000A000DE4\r\n",
+			toServer:        []byte{0x04, 0x01, 0x00, 0x0A, 0x00, 0x0D, 0xDD, 0x98},
 			fromServerError: common.ErrInvalidChecksum,
-			fromServer:      ":0401020A11DF\r\n",
+			fromServer:      []byte{0x04, 0x01, 0x02, 0x0A, 0x11, 0xB3, 0x51},
 		},
 	}
 
@@ -43,39 +61,39 @@ func TestASCIIReadCoils(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusRTUClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadCoils(0x04, 10, 13)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.toServer, string(port.writeData))
+			assert.Equal(t, tt.toServer, port.writeData)
 			assert.Equal(t, tt.coils, resp)
 		})
 	}
 }
 
-func TestASCIIReadDiscreteInputs(t *testing.T) {
+func TestRTUReadDiscreteInputs(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
-		toServer        string
+		toServer        []byte
 		inputs          []bool
 		fromServerError error
-		fromServer      string
+		fromServer      []byte
 	}{
 		{
 			name:       "Valid",
-			toServer:   ":0402000A000DE3\r\n",
+			toServer:   []byte{0x04, 0x02, 0x00, 0x0A, 0x00, 0x0D, 0x99, 0x98},
 			inputs:     []bool{false, true, false, true, false, false, false, false, true, false, false, false, true},
-			fromServer: ":0402020A11DD\r\n",
+			fromServer: []byte{0x04, 0x02, 0x02, 0x0A, 0x11, 0xb3, 0x14},
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",
-			toServer:        ":0402000A000DE3\r\n",
+			toServer:        []byte{0x04, 0x02, 0x00, 0x0A, 0x00, 0x0D, 0x99, 0x98},
 			fromServerError: common.ErrInvalidChecksum,
-			fromServer:      ":0402020A11DA\r\n",
+			fromServer:      []byte{0x04, 0x02, 0x02, 0x0A, 0x11, 0xB3, 0x15},
 		},
 	}
 
@@ -84,39 +102,39 @@ func TestASCIIReadDiscreteInputs(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusRTUClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadDiscreteInputs(0x04, 10, 13)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.toServer, string(port.writeData))
+			assert.Equal(t, tt.toServer, port.writeData)
 			assert.Equal(t, tt.inputs, resp)
 		})
 	}
 }
 
-func TestASCIIReadHoldingRegisters(t *testing.T) {
+func TestRTUReadHoldingRegisters(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
-		toServer        string
+		toServer        []byte
 		registers       []uint16
 		fromServerError error
-		fromServer      string
+		fromServer      []byte
 	}{
 		{
 			name:       "Valid",
-			toServer:   ":040300000002F7\r\n",
+			toServer:   []byte{0x04, 0x03, 0x00, 0x00, 0x00, 0x02, 0xc4, 0x5e},
 			registers:  []uint16{0x0006, 0x0005},
-			fromServer: ":04030400060005EA\r\n",
+			fromServer: []byte{0x04, 0x03, 0x04, 0x00, 0x06, 0x00, 0x05, 0x8f, 0x31},
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",
-			toServer:        ":040300000002F7\r\n",
+			toServer:        []byte{0x04, 0x03, 0x00, 0x00, 0x00, 0x02, 0xc4, 0x5e},
 			fromServerError: common.ErrInvalidChecksum,
-			fromServer:      ":04030400060005EB\r\n",
+			fromServer:      []byte{0x04, 0x03, 0x04, 0x00, 0x06, 0x00, 0x05, 0x8f, 0x32},
 		},
 	}
 
@@ -125,39 +143,39 @@ func TestASCIIReadHoldingRegisters(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusRTUClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadHoldingRegisters(0x04, 0, 2)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.toServer, string(port.writeData))
+			assert.Equal(t, tt.toServer, port.writeData)
 			assert.Equal(t, tt.registers, resp)
 		})
 	}
 }
 
-func TestASCIIReadInputRegisters(t *testing.T) {
+func TestRTUReadInputRegisters(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
-		toServer        string
+		toServer        []byte
 		registers       []uint16
 		fromServerError error
-		fromServer      string
+		fromServer      []byte
 	}{
 		{
 			name:       "Valid",
-			toServer:   ":040400000002F6\r\n",
+			toServer:   []byte{0x04, 0x04, 0x00, 0x00, 0x00, 0x02, 0x71, 0x9e},
 			registers:  []uint16{0x0006, 0x0005},
-			fromServer: ":04040400060005E9\r\n",
+			fromServer: []byte{0x04, 0x04, 0x04, 0x00, 0x06, 0x00, 0x05, 0x8e, 0x86},
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",
-			toServer:        ":040400000002F6\r\n",
+			toServer:        []byte{0x04, 0x04, 0x00, 0x00, 0x00, 0x02, 0x71, 0x9e},
 			fromServerError: common.ErrInvalidChecksum,
-			fromServer:      ":04040400060005E8\r\n",
+			fromServer:      []byte{0x04, 0x04, 0x04, 0x00, 0x06, 0x00, 0x05, 0x8e, 0x87},
 		},
 	}
 
@@ -166,45 +184,45 @@ func TestASCIIReadInputRegisters(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusRTUClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadInputRegisters(0x04, 0, 2)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.toServer, string(port.writeData))
+			assert.Equal(t, tt.toServer, port.writeData)
 			assert.Equal(t, tt.registers, resp)
 		})
 	}
 }
 
-func TestASCIIWriteSingleCoil(t *testing.T) {
+func TestRTUWriteSingleCoil(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
-		toServer        string
+		toServer        []byte
 		registers       []uint16
 		fromServerError error
-		fromServer      string
+		fromServer      []byte
 	}{
 		{
 			name:       "Valid",
-			toServer:   ":0405000AFF00EE\r\n",
+			toServer:   []byte{0x04, 0x05, 0x00, 0x0A, 0xFF, 0x00, 0xAC, 0x6D},
 			registers:  []uint16{0x0006, 0x0005},
-			fromServer: ":0405000AFF00EE\r\n",
+			fromServer: []byte{0x04, 0x05, 0x00, 0x0A, 0xFF, 0x00, 0xAC, 0x6D},
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",
-			toServer:        ":0405000AFF00EE\r\n",
+			toServer:        []byte{0x04, 0x05, 0x00, 0x0A, 0xFF, 0x00, 0xAC, 0x6D},
 			fromServerError: common.ErrInvalidChecksum,
-			fromServer:      ":0405000AFF00ED\r\n",
+			fromServer:      []byte{0x04, 0x05, 0x00, 0x0A, 0xFF, 0x00, 0xAD, 0xDD},
 		},
 		{
 			name:            "InvalidRequest_ResponseValueMismatch",
-			toServer:        ":0405000AFF00EE\r\n",
+			toServer:        []byte{0x04, 0x05, 0x00, 0x0A, 0xFF, 0x00, 0xAC, 0x6D},
 			fromServerError: common.ErrResponseValueMismatch,
-			fromServer:      ":0405000A0000ED\r\n",
+			fromServer:      []byte{0x04, 0x05, 0x00, 0x0A, 0x00, 0x00, 0xED, 0x9D},
 		},
 	}
 
@@ -213,44 +231,44 @@ func TestASCIIWriteSingleCoil(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusRTUClient(logger, port, 1*time.Minute)
 			err := client.WriteSingleCoil(0x04, 10, true)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.toServer, string(port.writeData))
+			assert.Equal(t, tt.toServer, port.writeData)
 		})
 	}
 }
 
-func TestASCIIWriteSingleRegister(t *testing.T) {
+func TestRTUWriteSingleRegister(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
-		toServer        string
+		toServer        []byte
 		register        uint16
 		fromServerError error
-		fromServer      string
+		fromServer      []byte
 	}{
 		{
 			name:       "Valid",
-			toServer:   ":040600100003E3\r\n",
+			toServer:   []byte{0x04, 0x06, 0x00, 0x10, 0x00, 0x03, 0xC8, 0x5B},
 			register:   uint16(0x0003),
-			fromServer: ":040600100003E3\r\n",
+			fromServer: []byte{0x04, 0x06, 0x00, 0x10, 0x00, 0x03, 0xC8, 0x5B},
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",
-			toServer:        ":040600100003E3\r\n",
+			toServer:        []byte{0x04, 0x06, 0x00, 0x10, 0x00, 0x03, 0xC8, 0x5B},
 			fromServerError: common.ErrInvalidChecksum,
-			fromServer:      ":040600100003E2\r\n",
+			fromServer:      []byte{0x04, 0x06, 0x00, 0x10, 0x00, 0x03, 0xC8, 0x5C},
 		},
 		{
 			name:            "InvalidRequest_ResponseValueMismatch",
-			toServer:        ":040600100003E3\r\n",
+			toServer:        []byte{0x04, 0x06, 0x00, 0x10, 0x00, 0x03, 0xC8, 0x5B},
 			fromServerError: common.ErrResponseValueMismatch,
-			fromServer:      ":040600100004E2\r\n",
+			fromServer:      []byte{0x04, 0x06, 0x00, 0x10, 0x00, 0x04, 0x89, 0x99},
 		},
 	}
 
@@ -259,38 +277,38 @@ func TestASCIIWriteSingleRegister(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusRTUClient(logger, port, 1*time.Minute)
 			err := client.WriteSingleRegister(0x04, 16, 3)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.toServer, string(port.writeData))
+			assert.Equal(t, tt.toServer, port.writeData)
 		})
 	}
 }
 
-func TestASCIIWriteMultipleCoils(t *testing.T) {
+func TestRTUWriteMultipleCoils(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
-		toServer        string
+		toServer        []byte
 		coils           []bool
 		fromServerError error
-		fromServer      string
+		fromServer      []byte
 	}{
 		{
 			name:       "Valid",
-			toServer:   ":040F000000180301830747\r\n",
+			toServer:   []byte{0x04, 0x0F, 0x00, 0x00, 0x00, 0x18, 0x03, 0x01, 0x83, 0x07, 0x21, 0x56},
 			coils:      []bool{true, false, false, false, false, false, false, false, true, true, false, false, false, false, false, true, true, true, true, false, false, false, false, false},
-			fromServer: ":040F00000018D5\r\n",
+			fromServer: []byte{0x04, 0x0F, 0x00, 0x00, 0x00, 0x18, 0x55, 0x94},
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",
-			toServer:        ":040F000000180301830747\r\n",
+			toServer:        []byte{0x04, 0x0F, 0x00, 0x00, 0x00, 0x18, 0x03, 0x01, 0x83, 0x07, 0x21, 0x56},
 			fromServerError: common.ErrInvalidChecksum,
-			fromServer:      ":040F00000018D4\r\n",
+			fromServer:      []byte{0x04, 0x0F, 0x00, 0x00, 0x00, 0x18, 0x55, 0x93},
 		},
 	}
 
@@ -299,38 +317,38 @@ func TestASCIIWriteMultipleCoils(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusRTUClient(logger, port, 1*time.Minute)
 			err := client.WriteMultipleCoils(0x04, 0, tt.coils)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.toServer, string(port.writeData))
+			assert.Equal(t, tt.toServer, port.writeData)
 		})
 	}
 }
 
-func TestASCIIWriteMultipleRegisters(t *testing.T) {
+func TestRTUWriteMultipleRegisters(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
-		toServer        string
+		toServer        []byte
 		registers       []uint16
 		fromServerError error
-		fromServer      string
+		fromServer      []byte
 	}{
 		{
 			name:       "Valid",
-			toServer:   ":0410000000020400040002E0\r\n",
+			toServer:   []byte{0x04, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, 0x00, 0x04, 0x00, 0x02, 0x22, 0x63},
 			registers:  []uint16{0x0004, 0x0002},
-			fromServer: ":041000000002EA\r\n",
+			fromServer: []byte{0x04, 0x10, 0x00, 0x00, 0x00, 0x02, 0x41, 0x9D},
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",
-			toServer:        ":0410000000020400040002E0\r\n",
+			toServer:        []byte{0x04, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, 0x00, 0x04, 0x00, 0x02, 0x22, 0x63},
 			fromServerError: common.ErrInvalidChecksum,
-			fromServer:      ":041000000002EB\r\n",
+			fromServer:      []byte{0x04, 0x10, 0x00, 0x00, 0x00, 0x02, 0x41, 0x91},
 		},
 	}
 
@@ -339,14 +357,14 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusRTUClient(logger, port, 1*time.Minute)
 			err := client.WriteMultipleRegisters(0x04, 0, tt.registers)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.toServer, string(port.writeData))
+			assert.Equal(t, tt.toServer, port.writeData)
 		})
 	}
 }

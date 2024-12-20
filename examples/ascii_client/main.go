@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/goburrow/serial"
-	"github.com/rinzlerlabs/gomodbus/client"
+	"github.com/rinzlerlabs/gomodbus/client/serial/ascii"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +25,7 @@ func main() {
 		return
 	}
 
-	modbusClient := client.NewModbusASCIIClient(logger, port, 1*time.Second)
+	modbusClient := ascii.NewModbusASCIIClient(logger, port, 1*time.Second)
 	defer modbusClient.Close()
 
 	coils, err := modbusClient.ReadCoils(91, 0, 16)
