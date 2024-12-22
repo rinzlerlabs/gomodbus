@@ -28,6 +28,7 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 		cancelCtx: ctx,
 		cancel:    cancel,
 		endpoint:  endpoint,
+		stats:     server.NewServerStats(),
 	}, nil
 }
 
@@ -38,6 +39,7 @@ type modbusServer struct {
 	logger    *zap.Logger
 	isRunning bool
 	endpoint  string
+	stats     *server.ServerStats
 	wg        sync.WaitGroup
 }
 
@@ -71,6 +73,10 @@ func (s *modbusServer) Close() error {
 	s.wg.Wait()
 	s.logger.Info("All clients disconnected")
 	return nil
+}
+
+func (s *modbusServer) Stats() *server.ServerStats {
+	return s.stats
 }
 
 func (s *modbusServer) run() {
@@ -120,6 +126,11 @@ func (s *modbusServer) handleClient(conn net.Conn) {
 			s.logger.Error("Failed to accept request", zap.Error(err))
 			return
 		}
-		s.handler.Handle(transaction)
+		s.stats.AddRequest(transaction)
+		err = s.handler.Handle(transaction)
+		if err != nil {
+			s.stats.AddError(err)
+			s.logger.Error("Failed to handle request", zap.Error(err))
+		}
 	}
 }

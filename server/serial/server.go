@@ -26,6 +26,7 @@ func NewModbusSerialServerWithHandler(logger *zap.Logger, serverAddress uint16, 
 		cancel:    cancel,
 		address:   serverAddress,
 		transport: transport,
+		stats:     server.NewServerStats(),
 	}, nil
 }
 
@@ -39,6 +40,7 @@ type modbusSerialServer struct {
 	transport transport.Transport
 	isRunning bool
 	wg        sync.WaitGroup
+	stats     *server.ServerStats
 }
 
 func (s *modbusSerialServer) IsRunning() bool {
@@ -92,6 +94,10 @@ func (s *modbusSerialServer) Handler() server.RequestHandler {
 	return s.handler
 }
 
+func (s *modbusSerialServer) Stats() *server.ServerStats {
+	return s.stats
+}
+
 func (s *modbusSerialServer) run() {
 	s.isRunning = true
 	s.wg.Add(1)
@@ -124,8 +130,10 @@ func (s *modbusSerialServer) run() {
 				// s.logger.Error("Failed to accept request", zap.Error(err))
 				continue
 			}
+			s.stats.AddRequest(op)
 			err = s.handler.Handle(op)
 			if err != nil {
+				s.stats.AddError(err)
 				s.logger.Error("Failed to handle request", zap.Error(err))
 			}
 		}
