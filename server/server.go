@@ -68,3 +68,22 @@ func (s *ServerStats) AddError(err error) {
 	}
 	s.LastErrors = append(s.LastErrors, err)
 }
+
+func (s *ServerStats) AsMap() map[string]interface{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return map[string]interface{}{
+		"TotalRequests":                       s.TotalRequests,
+		"TotalErrors":                         s.TotalErrors,
+		"TotalClients":                        s.TotalClients,
+		"TotalReadCoilsRequests":              s.TotalReadCoilsRequests,
+		"TotalReadDiscreteInputsRequests":     s.TotalReadDiscreteInputsRequests,
+		"TotalReadHoldingRegistersRequests":   s.TotalReadHoldingRegistersRequests,
+		"TotalReadInputRegistersRequests":     s.TotalReadInputRegistersRequests,
+		"TotalWriteSingleCoilRequests":        s.TotalWriteSingleCoilRequests,
+		"TotalWriteSingleRegisterRequests":    s.TotalWriteSingleRegisterRequests,
+		"TotalWriteMultipleCoilsRequests":     s.TotalWriteMultipleCoilsRequests,
+		"TotalWriteMultipleRegistersRequests": s.TotalWriteMultipleRegistersRequests,
+		"LastErrors":                          s.LastErrors,
+	}
+}
