@@ -2,6 +2,7 @@ package serial
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync"
 
@@ -64,6 +65,10 @@ func (s *modbusSerialServer) Start() error {
 }
 
 func (s *modbusSerialServer) Stop() error {
+	return s.close()
+}
+
+func (s *modbusSerialServer) close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.logger.Info("Stopping Modbus server")
@@ -75,6 +80,12 @@ func (s *modbusSerialServer) Stop() error {
 	s.wg.Wait()
 	s.logger.Info("Modbus Server stopped")
 	return nil
+}
+
+func (s *modbusSerialServer) Close() error {
+	closeErr := s.close()
+	transportCloseErr := s.transport.Close()
+	return errors.Join(closeErr, transportCloseErr)
 }
 
 func (s *modbusSerialServer) Handler() server.RequestHandler {

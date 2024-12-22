@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/rinzlerlabs/gomodbus/server"
 	"github.com/rinzlerlabs/gomodbus/transport/network/tcp"
@@ -37,6 +38,7 @@ type modbusServer struct {
 	logger    *zap.Logger
 	isRunning bool
 	endpoint  string
+	wg        sync.WaitGroup
 }
 
 func (s *modbusServer) IsRunning() bool {
@@ -62,12 +64,17 @@ func (s *modbusServer) Stop() error {
 	return nil
 }
 
+func (s *modbusServer) Close() error {
+	s.logger.Info("Closing Modbus TCP server")
+	s.cancel()
+	s.logger.Info("Waiting for all clients to disconnect")
+	s.wg.Wait()
+	s.logger.Info("All clients disconnected")
+	return nil
+}
+
 func (s *modbusServer) run() {
 	listener, err := net.Listen("tcp", s.endpoint)
-	if err != nil {
-		s.logger.Error("Failed to listen", zap.Error(err))
-		return
-	}
 	if err != nil {
 		s.logger.Error("Failed to create TCP transport", zap.Error(err))
 		return
@@ -90,6 +97,8 @@ func (s *modbusServer) run() {
 }
 
 func (s *modbusServer) handleClient(conn net.Conn) {
+	s.wg.Add(1)
+	defer s.wg.Done()
 	defer conn.Close()
 	t := tcp.NewModbusTransport(conn, s.logger)
 	for {
