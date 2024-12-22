@@ -25,7 +25,7 @@ func main() {
 		return
 	}
 
-	modbusClient := ascii.NewModbusASCIIClient(logger, port, 1*time.Second)
+	modbusClient := ascii.NewModbusClient(logger, port, 1*time.Second)
 	defer modbusClient.Close()
 
 	coils, err := modbusClient.ReadCoils(91, 0, 16)

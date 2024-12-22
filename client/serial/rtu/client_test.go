@@ -61,7 +61,7 @@ func TestRTUReadCoils(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusRTUClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadCoils(0x04, 10, 13)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -102,7 +102,7 @@ func TestRTUReadDiscreteInputs(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusRTUClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadDiscreteInputs(0x04, 10, 13)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -143,7 +143,7 @@ func TestRTUReadHoldingRegisters(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusRTUClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadHoldingRegisters(0x04, 0, 2)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -184,7 +184,7 @@ func TestRTUReadInputRegisters(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusRTUClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadInputRegisters(0x04, 0, 2)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -231,7 +231,7 @@ func TestRTUWriteSingleCoil(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusRTUClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			err := client.WriteSingleCoil(0x04, 10, true)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -277,7 +277,7 @@ func TestRTUWriteSingleRegister(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusRTUClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			err := client.WriteSingleRegister(0x04, 16, 3)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -317,7 +317,7 @@ func TestRTUWriteMultipleCoils(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusRTUClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			err := client.WriteMultipleCoils(0x04, 0, tt.coils)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -357,7 +357,7 @@ func TestRTUWriteMultipleRegisters(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusRTUClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			err := client.WriteMultipleRegisters(0x04, 0, tt.registers)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)

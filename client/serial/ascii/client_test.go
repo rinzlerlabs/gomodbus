@@ -67,7 +67,7 @@ func TestASCIIReadCoils(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadCoils(0x04, 10, 13)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -108,7 +108,7 @@ func TestASCIIReadDiscreteInputs(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadDiscreteInputs(0x04, 10, 13)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -149,7 +149,7 @@ func TestASCIIReadHoldingRegisters(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadHoldingRegisters(0x04, 0, 2)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -190,7 +190,7 @@ func TestASCIIReadInputRegisters(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			resp, err := client.ReadInputRegisters(0x04, 0, 2)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -237,7 +237,7 @@ func TestASCIIWriteSingleCoil(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			err := client.WriteSingleCoil(0x04, 10, true)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -283,7 +283,7 @@ func TestASCIIWriteSingleRegister(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			err := client.WriteSingleRegister(0x04, 16, 3)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -323,7 +323,7 @@ func TestASCIIWriteMultipleCoils(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			err := client.WriteMultipleCoils(0x04, 0, tt.coils)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)
@@ -363,7 +363,7 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
-			client := newModbusASCIIClient(logger, port, 1*time.Minute)
+			client := newModbusClient(logger, port, 1*time.Minute)
 			err := client.WriteMultipleRegisters(0x04, 0, tt.registers)
 			if tt.fromServerError != nil {
 				assert.Equal(t, tt.fromServerError, err)

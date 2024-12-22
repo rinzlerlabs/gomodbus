@@ -13,7 +13,7 @@ func main() {
 		panic(err)
 	}
 
-	client, err := tcp.NewModbusTCPClient(logger, "127.0.0.1:502", 10*time.Second)
+	client, err := tcp.NewModbusClient(logger, "127.0.0.1:502", 10*time.Second)
 	if err != nil {
 		logger.Error("Failed to create modbus client", zap.Error(err))
 		return
