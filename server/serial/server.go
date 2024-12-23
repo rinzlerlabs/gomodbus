@@ -69,11 +69,7 @@ func (s *modbusSerialServer) Start() error {
 	return nil
 }
 
-func (s *modbusSerialServer) Stop() error {
-	return s.close()
-}
-
-func (s *modbusSerialServer) close() error {
+func (s *modbusSerialServer) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.logger.Info("Stopping Modbus server")
@@ -84,13 +80,7 @@ func (s *modbusSerialServer) close() error {
 	}
 	s.wg.Wait()
 	s.logger.Info("Modbus Server stopped")
-	return nil
-}
-
-func (s *modbusSerialServer) Close() error {
-	closeErr := s.close()
-	transportCloseErr := s.transport.Close()
-	return errors.Join(closeErr, transportCloseErr)
+	return s.transport.Close()
 }
 
 func (s *modbusSerialServer) Handler() server.RequestHandler {

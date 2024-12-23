@@ -9,7 +9,6 @@ import (
 
 type ModbusServer interface {
 	Start() error
-	Stop() error
 	Close() error
 	IsRunning() bool
 	Stats() *ServerStats

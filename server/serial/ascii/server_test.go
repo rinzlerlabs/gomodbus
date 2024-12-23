@@ -74,7 +74,7 @@ func TestAcceptRequest(t *testing.T) {
 
 	waitForWrite(port, 7)
 
-	err = s.Stop()
+	err = s.Close()
 	assert.NoError(t, err)
 
 	adu := port.writeData
@@ -132,7 +132,7 @@ func TestReadCoils(t *testing.T) {
 
 			waitForWrite(port, len(tt.response))
 
-			err = s.Stop()
+			err = s.Close()
 			assert.NoError(t, err)
 			assert.Equal(t, tt.response, string(port.writeData))
 		})
@@ -185,7 +185,7 @@ func TestReadDiscreteInputs(t *testing.T) {
 
 			waitForWrite(port, len(tt.response))
 
-			err = s.Stop()
+			err = s.Close()
 			assert.NoError(t, err)
 			assert.Equal(t, tt.response, string(port.writeData))
 		})
@@ -238,7 +238,7 @@ func TestReadHoldingRegisters(t *testing.T) {
 
 			waitForWrite(port, len(tt.response))
 
-			err = s.Stop()
+			err = s.Close()
 			assert.NoError(t, err)
 			assert.Equal(t, tt.response, string(port.writeData))
 		})
@@ -291,7 +291,7 @@ func TestReadInputRegisters(t *testing.T) {
 
 			waitForWrite(port, len(tt.response))
 
-			err = s.Stop()
+			err = s.Close()
 			assert.NoError(t, err)
 			assert.Equal(t, tt.response, string(port.writeData))
 		})
@@ -343,7 +343,7 @@ func TestWriteSingleCoil(t *testing.T) {
 
 			waitForWrite(port, len(tt.response))
 
-			err = s.Stop()
+			err = s.Close()
 			assert.NoError(t, err)
 			if tt.coilIndex > 0 {
 				assert.Equal(t, tt.coilValue, handler.(*server.DefaultHandler).Coils[tt.coilIndex+1])
@@ -398,7 +398,7 @@ func TestWriteSingleRegister(t *testing.T) {
 
 			waitForWrite(port, len(tt.response))
 
-			err = s.Stop()
+			err = s.Close()
 			assert.NoError(t, err)
 			if tt.registerIndex > 0 {
 				assert.Equal(t, tt.registerValue, handler.(*server.DefaultHandler).HoldingRegisters[tt.registerIndex+1])
@@ -451,7 +451,7 @@ func TestWriteMultipleCoils(t *testing.T) {
 
 			waitForWrite(port, len(tt.response))
 
-			err = s.Stop()
+			err = s.Close()
 			assert.NoError(t, err)
 			if tt.expectedRegisters != nil {
 				assert.Equal(t, tt.expectedRegisters, handler.(*server.DefaultHandler).Coils[0:24])
@@ -504,7 +504,7 @@ func TestWriteMultipleRegisters(t *testing.T) {
 
 			waitForWrite(port, len(tt.response))
 
-			err = s.Stop()
+			err = s.Close()
 			assert.NoError(t, err)
 			if tt.expectedRegisters != nil {
 				assert.Equal(t, tt.expectedRegisters, handler.(*server.DefaultHandler).HoldingRegisters[0:2])

@@ -22,12 +22,16 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 		return nil, errors.New("handler is required")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	listener, err := net.Listen("tcp", endpoint)
+	if err != nil {
+		return nil, err
+	}
 	return &modbusServer{
 		logger:    logger,
 		handler:   handler,
 		cancelCtx: ctx,
 		cancel:    cancel,
-		endpoint:  endpoint,
+		listener:  listener,
 		stats:     server.NewServerStats(),
 	}, nil
 }
@@ -38,7 +42,7 @@ type modbusServer struct {
 	cancel    context.CancelFunc
 	logger    *zap.Logger
 	isRunning bool
-	endpoint  string
+	listener  net.Listener
 	stats     *server.ServerStats
 	wg        sync.WaitGroup
 	mu        sync.Mutex
@@ -68,6 +72,7 @@ func (s *modbusServer) Stop() error {
 	s.logger.Info("Stopping Modbus TCP server")
 	s.isRunning = false
 	s.cancel()
+	s.wg.Wait()
 	return nil
 }
 
@@ -75,11 +80,12 @@ func (s *modbusServer) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.logger.Info("Closing Modbus TCP server")
+	err := s.listener.Close()
 	s.cancel()
 	s.logger.Info("Waiting for all clients to disconnect")
 	s.wg.Wait()
 	s.logger.Info("All clients disconnected")
-	return nil
+	return err
 }
 
 func (s *modbusServer) Stats() *server.ServerStats {
@@ -87,19 +93,15 @@ func (s *modbusServer) Stats() *server.ServerStats {
 }
 
 func (s *modbusServer) run() {
-	listener, err := net.Listen("tcp", s.endpoint)
-	if err != nil {
-		s.logger.Error("Failed to create TCP transport", zap.Error(err))
-		return
-	}
-	defer listener.Close()
-
 	for {
 		select {
 		case <-s.cancelCtx.Done():
 			return
 		default:
-			conn, err := listener.Accept()
+			conn, err := s.listener.Accept()
+			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+				continue
+			}
 			if err != nil {
 				s.logger.Error("Failed to accept connection", zap.Error(err))
 				continue

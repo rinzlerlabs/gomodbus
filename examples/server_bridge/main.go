@@ -45,7 +45,7 @@ func main() {
 		logger.Error("Failed to start TCP server", zap.Error(err))
 		return
 	}
-	defer one.Stop() // Make sure we close it when we're done
+	defer one.Close() // Make sure we close it when we're done
 
 	// Create the TCP server
 	two, err := tcp.NewModbusServerWithHandler(logger, ":8502", handler)
@@ -58,7 +58,7 @@ func main() {
 		logger.Error("Failed to start TCP server", zap.Error(err))
 		return
 	}
-	defer two.Stop() // Don't forget to close it when we're done
+	defer two.Close() // Don't forget to close it when we're done
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt) // Wait until Ctrl+C is pressed
