@@ -66,7 +66,7 @@ func (a *modbusApplicationDataUnit) Bytes() []byte {
 
 func newModbusRTURequestProtocolDataUnit(functionCode data.FunctionCode, bytes []byte) (*transport.ProtocolDataUnit, error) {
 	op, err := data.ParseModbusRequestOperation(functionCode, bytes)
-	return transport.NewProtocolDataUnit(functionCode, op), err
+	return transport.NewProtocolDataUnit(op), err
 }
 
 // NewModbusRTURequestFrame creates a new Modbus RTU request frame from raw bytes read from the wire and a transport
@@ -102,7 +102,7 @@ func NewModbusRTUResponseFrame(packet []byte, valueCount uint16) (*transport.Mod
 	if err != nil {
 		return nil, err
 	}
-	pdu := transport.NewProtocolDataUnit(functionCode, op)
+	pdu := transport.NewProtocolDataUnit(op)
 	adu := &modbusApplicationDataUnit{
 		header:   serial.NewHeader(uint16(packet[0])),
 		pdu:      pdu,

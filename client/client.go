@@ -71,7 +71,7 @@ func (m *modbusClient) Close() error {
 
 func (m *modbusClient) ReadCoils(address, offset, quantity uint16) ([]bool, error) {
 	req := data.NewReadCoilsRequest(offset, quantity)
-	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(data.ReadCoils, req))
+	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (m *modbusClient) ReadDiscreteInputs(address, offset, quantity uint16) ([]b
 		Offset: offset,
 		Count:  quantity,
 	}
-	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(data.ReadDiscreteInputs, req))
+	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (m *modbusClient) ReadHoldingRegisters(address, offset, quantity uint16) ([
 		Offset: offset,
 		Count:  quantity,
 	}
-	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(data.ReadHoldingRegisters, req))
+	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (m *modbusClient) ReadInputRegisters(address, offset, quantity uint16) ([]u
 		Offset: offset,
 		Count:  quantity,
 	}
-	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(data.ReadInputRegisters, req))
+	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (m *modbusClient) WriteSingleCoil(address, offset uint16, value bool) error
 		Offset: offset,
 		Value:  value,
 	}
-	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(data.WriteSingleCoil, req))
+	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (m *modbusClient) WriteSingleRegister(address, offset, value uint16) error 
 		Offset: offset,
 		Value:  value,
 	}
-	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(data.WriteSingleRegister, req))
+	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (m *modbusClient) WriteMultipleCoils(address, offset uint16, values []bool)
 		Offset: offset,
 		Values: values,
 	}
-	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(data.WriteMultipleCoils, req))
+	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func (m *modbusClient) WriteMultipleRegisters(address, offset uint16, values []u
 		Offset: offset,
 		Values: values,
 	}
-	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(data.WriteMultipleRegisters, req))
+	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return err
 	}

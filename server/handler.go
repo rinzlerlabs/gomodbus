@@ -136,7 +136,7 @@ func (h *DefaultHandler) Handle(txn transport.ModbusTransaction) error {
 		h.logger.Error("Failed to handle request", zap.Error(err))
 		result = data.NewModbusOperationException(txn.Frame().PDU().FunctionCode(), data.ServerDeviceFailure)
 	}
-	pdu := transport.NewProtocolDataUnit(txn.Frame().PDU().FunctionCode(), result)
+	pdu := transport.NewProtocolDataUnit(result)
 	h.logger.Debug("Response", zap.Object("PDU", pdu))
 	return txn.Write(pdu)
 }

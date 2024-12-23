@@ -55,9 +55,46 @@ type ApplicationDataUnit interface {
 	Checksum() ErrorCheck
 }
 
-func NewProtocolDataUnit(functionCode data.FunctionCode, op data.ModbusOperation) *ProtocolDataUnit {
+func NewProtocolDataUnit(op data.ModbusOperation) *ProtocolDataUnit {
+	var f data.FunctionCode
+	switch op.(type) {
+	case *data.ReadCoilsRequest:
+		f = data.ReadCoils
+	case *data.ReadCoilsResponse:
+		f = data.ReadCoils
+	case *data.ReadDiscreteInputsRequest:
+		f = data.ReadDiscreteInputs
+	case *data.ReadDiscreteInputsResponse:
+		f = data.ReadDiscreteInputs
+	case *data.ReadHoldingRegistersRequest:
+		f = data.ReadHoldingRegisters
+	case *data.ReadHoldingRegistersResponse:
+		f = data.ReadHoldingRegisters
+	case *data.ReadInputRegistersRequest:
+		f = data.ReadInputRegisters
+	case *data.ReadInputRegistersResponse:
+		f = data.ReadInputRegisters
+	case *data.WriteSingleCoilRequest:
+		f = data.WriteSingleCoil
+	case *data.WriteSingleCoilResponse:
+		f = data.WriteSingleCoil
+	case *data.WriteSingleRegisterRequest:
+		f = data.WriteSingleRegister
+	case *data.WriteSingleRegisterResponse:
+		f = data.WriteSingleRegister
+	case *data.WriteMultipleCoilsRequest:
+		f = data.WriteMultipleCoils
+	case *data.WriteMultipleCoilsResponse:
+		f = data.WriteMultipleCoils
+	case *data.WriteMultipleRegistersRequest:
+		f = data.WriteMultipleRegisters
+	case *data.WriteMultipleRegistersResponse:
+		f = data.WriteMultipleRegisters
+	case *data.ModbusOperationException:
+		f = op.(*data.ModbusOperationException).FunctionCode
+	}
 	return &ProtocolDataUnit{
-		functionCode: functionCode,
+		functionCode: f,
 		op:           op,
 	}
 }
@@ -83,27 +120,6 @@ func (pdu *ProtocolDataUnit) FunctionCode() data.FunctionCode {
 
 func (pdu *ProtocolDataUnit) Bytes() []byte {
 	return append([]byte{byte(pdu.functionCode)}, pdu.op.Bytes()...)
-}
-
-type modbusFrame struct {
-	ApplicationDataUnit
-	transport       Transport
-	responseCreator func(request ModbusFrame, response ProtocolDataUnit) ModbusFrame
-}
-
-func (m modbusFrame) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
-	encoder.AddString("Header", EncodeToString(m.Header().Bytes()))
-	encoder.AddObject("PDU", m.PDU())
-	encoder.AddString("Checksum", EncodeToString(m.Checksum()))
-	return nil
-}
-
-func (m modbusFrame) Transport() Transport {
-	return m.transport
-}
-
-func (m modbusFrame) ResponseCreator() func(request ModbusFrame, response ProtocolDataUnit) ModbusFrame {
-	return m.responseCreator
 }
 
 func EncodeToString(data []byte) string {

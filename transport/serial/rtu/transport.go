@@ -237,6 +237,23 @@ func (t *modbusRTUTransport) readResponseFrame(ctx context.Context) ([]byte, err
 			read += n
 		}
 		return bytes[:8], nil
+	case data.ReadCoilsError, data.ReadDiscreteInputsError, data.ReadHoldingRegistersError, data.ReadInputRegistersError, data.WriteSingleCoilError, data.WriteSingleRegisterError, data.WriteMultipleCoilsError, data.WriteMultipleRegistersError:
+		// These functions are exactly 5 bytes long
+		for read < 5 {
+			d := make([]byte, 5-read)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+			n, err := t.stream.Read(d)
+			if err != nil {
+				return nil, err
+			}
+			copy(bytes[read:read+n], d[:n])
+			read += n
+		}
+		return bytes[:5], nil
 	default:
 		return nil, common.ErrUnsupportedFunctionCode
 	}

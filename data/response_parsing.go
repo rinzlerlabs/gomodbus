@@ -25,7 +25,21 @@ func ParseModbusResponseOperation(functionCode FunctionCode, bytes []byte, value
 	case WriteMultipleRegisters:
 		op, err = newWriteMultipleRegistersResponse(bytes)
 	case ReadCoilsError:
-		op, err = NewModbusOperationExceptionFromResponse(bytes)
+		op, err = NewModbusOperationExceptionFromResponse(functionCode, bytes)
+	case ReadDiscreteInputsError:
+		op, err = NewModbusOperationExceptionFromResponse(functionCode, bytes)
+	case ReadHoldingRegistersError:
+		op, err = NewModbusOperationExceptionFromResponse(functionCode, bytes)
+	case ReadInputRegistersError:
+		op, err = NewModbusOperationExceptionFromResponse(functionCode, bytes)
+	case WriteSingleCoilError:
+		op, err = NewModbusOperationExceptionFromResponse(functionCode, bytes)
+	case WriteSingleRegisterError:
+		op, err = NewModbusOperationExceptionFromResponse(functionCode, bytes)
+	case WriteMultipleCoilsError:
+		op, err = NewModbusOperationExceptionFromResponse(functionCode, bytes)
+	case WriteMultipleRegistersError:
+		op, err = NewModbusOperationExceptionFromResponse(functionCode, bytes)
 	default:
 		return nil, common.ErrInvalidFunctionCode
 	}
@@ -140,11 +154,12 @@ func newWriteMultipleRegistersResponse(b []byte) (*WriteMultipleRegistersRespons
 	}, nil
 }
 
-func NewModbusOperationExceptionFromResponse(b []byte) (*ModbusOperationException, error) {
+func NewModbusOperationExceptionFromResponse(functionCode FunctionCode, b []byte) (*ModbusOperationException, error) {
 	if len(b) != 1 {
 		return nil, common.ErrInvalidPacket
 	}
 	return &ModbusOperationException{
+		FunctionCode:  functionCode,
 		ExceptionCode: ExceptionCode(b[0]),
 	}, nil
 }

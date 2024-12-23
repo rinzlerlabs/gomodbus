@@ -72,7 +72,7 @@ func NewModbusRequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 	if err != nil {
 		return nil, err
 	}
-	pdu := transport.NewProtocolDataUnit(functionCode, op)
+	pdu := transport.NewProtocolDataUnit(op)
 	adu := &modbusApplicationDataUnit{
 		header:   serial.NewHeader(uint16(packet[0])),
 		pdu:      pdu,
@@ -105,7 +105,7 @@ func NewModbusASCIIResponseFrame(packet []byte, valueCount uint16) (*transport.M
 	if err != nil {
 		return nil, err
 	}
-	pdu := transport.NewProtocolDataUnit(functionCode, op)
+	pdu := transport.NewProtocolDataUnit(op)
 	adu := &modbusApplicationDataUnit{
 		header:   serial.NewHeader(uint16(packet[0])),
 		pdu:      pdu,

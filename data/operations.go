@@ -627,11 +627,13 @@ func (r *WriteMultipleRegistersResponse) Bytes() []byte {
 
 func NewModbusOperationException(requestFunction FunctionCode, code ExceptionCode) *ModbusOperationException {
 	return &ModbusOperationException{
+		FunctionCode:  requestFunction + 0x80,
 		ExceptionCode: code,
 	}
 }
 
 type ModbusOperationException struct {
+	FunctionCode  FunctionCode
 	ExceptionCode ExceptionCode
 }
 

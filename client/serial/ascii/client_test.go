@@ -48,7 +48,7 @@ func TestASCIIReadCoils(t *testing.T) {
 			fromServer: ":0401020A11DE\r\n",
 		},
 		{
-			name:            "Exception",
+			name:            "ServerError_IllegalDataAddress",
 			toServer:        ":0401000A000DE4\r\n",
 			fromServer:      ":04810279\r\n",
 			fromServerError: common.ErrIllegalDataAddress,
@@ -96,6 +96,12 @@ func TestASCIIReadDiscreteInputs(t *testing.T) {
 			fromServer: ":0402020A11DD\r\n",
 		},
 		{
+			name:            "ServerError_IllegalDataAddress",
+			toServer:        ":0402000A000DE3\r\n",
+			fromServer:      ":04820278\r\n",
+			fromServerError: common.ErrIllegalDataAddress,
+		},
+		{
 			name:            "InvalidRequest_InvalidChecksum",
 			toServer:        ":0402000A000DE3\r\n",
 			fromServerError: common.ErrInvalidChecksum,
@@ -136,6 +142,12 @@ func TestASCIIReadHoldingRegisters(t *testing.T) {
 			toServer:   ":040300000002F7\r\n",
 			registers:  []uint16{0x0006, 0x0005},
 			fromServer: ":04030400060005EA\r\n",
+		},
+		{
+			name:            "ServerError_IllegalDataAddress",
+			toServer:        ":040300000002F7\r\n",
+			fromServer:      ":04830277\r\n",
+			fromServerError: common.ErrIllegalDataAddress,
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",
@@ -180,6 +192,12 @@ func TestASCIIReadInputRegisters(t *testing.T) {
 			fromServer: ":04040400060005E9\r\n",
 		},
 		{
+			name:            "ServerError_IllegalDataAddress",
+			toServer:        ":040400000002F6\r\n",
+			fromServer:      ":04840276\r\n",
+			fromServerError: common.ErrIllegalDataAddress,
+		},
+		{
 			name:            "InvalidRequest_InvalidChecksum",
 			toServer:        ":040400000002F6\r\n",
 			fromServerError: common.ErrInvalidChecksum,
@@ -220,6 +238,12 @@ func TestASCIIWriteSingleCoil(t *testing.T) {
 			toServer:   ":0405000AFF00EE\r\n",
 			registers:  []uint16{0x0006, 0x0005},
 			fromServer: ":0405000AFF00EE\r\n",
+		},
+		{
+			name:            "ServerError_IllegalDataAddress",
+			toServer:        ":0405000AFF00EE\r\n",
+			fromServer:      ":04850275\r\n",
+			fromServerError: common.ErrIllegalDataAddress,
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",
@@ -269,6 +293,12 @@ func TestASCIIWriteSingleRegister(t *testing.T) {
 			fromServer: ":040600100003E3\r\n",
 		},
 		{
+			name:            "ServerError_IllegalDataAddress",
+			toServer:        ":040600100003E3\r\n",
+			fromServer:      ":04860274\r\n",
+			fromServerError: common.ErrIllegalDataAddress,
+		},
+		{
 			name:            "InvalidRequest_InvalidChecksum",
 			toServer:        ":040600100003E3\r\n",
 			fromServerError: common.ErrInvalidChecksum,
@@ -316,6 +346,12 @@ func TestASCIIWriteMultipleCoils(t *testing.T) {
 			fromServer: ":040F00000018D5\r\n",
 		},
 		{
+			name:            "ServerError_IllegalDataAddress",
+			toServer:        ":040F000000180301830747\r\n",
+			fromServer:      ":048F026B\r\n",
+			fromServerError: common.ErrIllegalDataAddress,
+		},
+		{
 			name:            "InvalidRequest_InvalidChecksum",
 			toServer:        ":040F000000180301830747\r\n",
 			fromServerError: common.ErrInvalidChecksum,
@@ -355,6 +391,12 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 			toServer:   ":0410000000020400040002E0\r\n",
 			registers:  []uint16{0x0004, 0x0002},
 			fromServer: ":041000000002EA\r\n",
+		},
+		{
+			name:            "ServerError_IllegalDataAddress",
+			toServer:        ":0410000000020400040002E0\r\n",
+			fromServer:      ":0490026A\r\n",
+			fromServerError: common.ErrIllegalDataAddress,
 		},
 		{
 			name:            "InvalidRequest_InvalidChecksum",

@@ -19,7 +19,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "ReadCoilsRequest",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.ReadCoils, &data.ReadCoilsRequest{Offset: 0, Count: 16}),
+				pdu:    transport.NewProtocolDataUnit(&data.ReadCoilsRequest{Offset: 0, Count: 16}),
 			},
 			expectedBytes: []byte{0x01, 0x01, 0x00, 0x00, 0x00, 0x10},
 		},
@@ -27,7 +27,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "ReadCoilsResponse",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.ReadCoils, &data.ReadCoilsResponse{Values: []bool{true, false, false, false, false, false, false, true, true, false, false, false, false, false, false, true}}),
+				pdu:    transport.NewProtocolDataUnit(&data.ReadCoilsResponse{Values: []bool{true, false, false, false, false, false, false, true, true, false, false, false, false, false, false, true}}),
 			},
 			expectedBytes: []byte{0x01, 0x01, 0x02, 0x81, 0x81},
 		},
@@ -35,7 +35,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "ReadDiscreteInputsRequest",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.ReadDiscreteInputs, &data.ReadDiscreteInputsRequest{Offset: 0, Count: 16}),
+				pdu:    transport.NewProtocolDataUnit(&data.ReadDiscreteInputsRequest{Offset: 0, Count: 16}),
 			},
 			expectedBytes: []byte{0x01, 0x02, 0x00, 0x00, 0x00, 0x10},
 		},
@@ -43,7 +43,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "ReadDiscreteInputsResponse",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.ReadDiscreteInputs, &data.ReadDiscreteInputsResponse{Values: []bool{true, false, false, false, false, false, false, true, true, false, false, false, false, false, false, true}}),
+				pdu:    transport.NewProtocolDataUnit(&data.ReadDiscreteInputsResponse{Values: []bool{true, false, false, false, false, false, false, true, true, false, false, false, false, false, false, true}}),
 			},
 			expectedBytes: []byte{0x01, 0x02, 0x02, 0x81, 0x81},
 		},
@@ -51,7 +51,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "ReadHoldingRegistersRequest",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.ReadHoldingRegisters, &data.ReadHoldingRegistersRequest{Offset: 0, Count: 4}),
+				pdu:    transport.NewProtocolDataUnit(&data.ReadHoldingRegistersRequest{Offset: 0, Count: 4}),
 			},
 			expectedBytes: []byte{0x01, 0x03, 0x00, 0x00, 0x00, 0x04},
 		},
@@ -59,7 +59,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "ReadHoldingRegistersResponse",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.ReadHoldingRegisters, &data.ReadHoldingRegistersResponse{Values: []uint16{0x0001, 0x0002, 0x0003, 0x0004}}),
+				pdu:    transport.NewProtocolDataUnit(&data.ReadHoldingRegistersResponse{Values: []uint16{0x0001, 0x0002, 0x0003, 0x0004}}),
 			},
 			expectedBytes: []byte{0x01, 0x03, 0x08, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04},
 		},
@@ -67,7 +67,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "ReadInputRegistersRequest",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.ReadInputRegisters, &data.ReadInputRegistersRequest{Offset: 0, Count: 4}),
+				pdu:    transport.NewProtocolDataUnit(&data.ReadInputRegistersRequest{Offset: 0, Count: 4}),
 			},
 			expectedBytes: []byte{0x01, 0x04, 0x00, 0x00, 0x00, 0x04},
 		},
@@ -75,7 +75,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "ReadInputRegistersResponse",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.ReadInputRegisters, &data.ReadInputRegistersResponse{Values: []uint16{0x0001, 0x0002, 0x0003, 0x0004}}),
+				pdu:    transport.NewProtocolDataUnit(&data.ReadInputRegistersResponse{Values: []uint16{0x0001, 0x0002, 0x0003, 0x0004}}),
 			},
 			expectedBytes: []byte{0x01, 0x04, 0x08, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04},
 		},
@@ -83,7 +83,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "WriteSingleCoilRequest",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.WriteSingleCoil, &data.WriteSingleCoilRequest{Offset: 0, Value: true}),
+				pdu:    transport.NewProtocolDataUnit(&data.WriteSingleCoilRequest{Offset: 0, Value: true}),
 			},
 			expectedBytes: []byte{0x01, 0x05, 0x00, 0x00, 0xFF, 0x00},
 		},
@@ -91,7 +91,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "WriteSingleCoilResponse",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.WriteSingleCoil, &data.WriteSingleCoilResponse{Offset: 0, Value: true}),
+				pdu:    transport.NewProtocolDataUnit(&data.WriteSingleCoilResponse{Offset: 0, Value: true}),
 			},
 			expectedBytes: []byte{0x01, 0x05, 0x00, 0x00, 0xFF, 0x00},
 		},
@@ -99,7 +99,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "WriteSingleRegisterRequest",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.WriteSingleRegister, &data.WriteSingleRegisterRequest{Offset: 0, Value: 0x0001}),
+				pdu:    transport.NewProtocolDataUnit(&data.WriteSingleRegisterRequest{Offset: 0, Value: 0x0001}),
 			},
 			expectedBytes: []byte{0x01, 0x06, 0x00, 0x00, 0x00, 0x01},
 		},
@@ -107,7 +107,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "WriteSingleRegisterResponse",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu:    transport.NewProtocolDataUnit(data.WriteSingleRegister, &data.WriteSingleRegisterResponse{Offset: 0, Value: 0x0001}),
+				pdu:    transport.NewProtocolDataUnit(&data.WriteSingleRegisterResponse{Offset: 0, Value: 0x0001}),
 			},
 			expectedBytes: []byte{0x01, 0x06, 0x00, 0x00, 0x00, 0x01},
 		},
@@ -115,7 +115,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "WriteMultipleCoilsRequest",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu: transport.NewProtocolDataUnit(data.WriteMultipleCoils, &data.WriteMultipleCoilsRequest{
+				pdu: transport.NewProtocolDataUnit(&data.WriteMultipleCoilsRequest{
 					Offset: 0,
 					Values: []bool{true, false, false, false, false, false, false, true, true, false, false, false, false, false, false, true},
 				}),
@@ -126,7 +126,7 @@ func TestADU_Bytes(t *testing.T) {
 			name: "WriteMultipleCoilsResponse",
 			adu: &modbusApplicationDataUnit{
 				header: serial.NewHeader(1),
-				pdu: transport.NewProtocolDataUnit(data.WriteMultipleCoils, &data.WriteMultipleCoilsResponse{
+				pdu: transport.NewProtocolDataUnit(&data.WriteMultipleCoilsResponse{
 					Offset: 0,
 					Count:  16,
 				}),

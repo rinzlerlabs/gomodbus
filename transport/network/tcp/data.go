@@ -58,7 +58,7 @@ func NewModbusRequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 	if err != nil {
 		return nil, err
 	}
-	pdu := transport.NewProtocolDataUnit(functionCode, op)
+	pdu := transport.NewProtocolDataUnit(op)
 	adu := &modbusApplicationDataUnit{
 		header: network.NewHeader(txId, protoId, unitId),
 		pdu:    pdu,
@@ -90,7 +90,7 @@ func NewModbusTCPResponseFrame(packet []byte, valueCount uint16) (*transport.Mod
 	if err != nil {
 		return nil, err
 	}
-	pdu := transport.NewProtocolDataUnit(functionCode, op)
+	pdu := transport.NewProtocolDataUnit(op)
 	adu := &modbusApplicationDataUnit{
 		header: network.NewHeader(txId, protoId, unitId),
 		pdu:    pdu,
