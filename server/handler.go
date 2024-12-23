@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
@@ -11,44 +12,77 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	// DefaultCoilCount is the default number of coils.
+	DefaultCoilCount = 65535
+	// DefaultDiscreteInputCount is the default number of discrete inputs.
+	DefaultDiscreteInputCount = 65535
+	// DefaultHoldingRegisterCount is the default number of holding registers.
+	DefaultHoldingRegisterCount = 65535
+	// DefaultInputRegisterCount is the default number of input registers.
+	DefaultInputRegisterCount = 65535
+
+	coilsFile            = "coils.dat"
+	discreteInputsFile   = "discrete_inputs.dat"
+	holdingRegistersFile = "holding_registers.dat"
+	inputRegistersFile   = "input_registers.dat"
+)
+
 // RequestHandler is the interface that wraps the basic Modbus functions.
 // TODO: Merge single and multiple requests into one.
 type RequestHandler interface {
+	// Handle handles a modbus transaction, this is used by the server to process incoming requests.
 	Handle(op transport.ModbusTransaction) error
+	// ReadCoils reads the status of coils in this device.
 	ReadCoils(request data.ModbusOperation) (response data.ModbusReadOperation[[]bool], err error)
+	// ReadDiscreteInputs reads the status of discrete inputs in this device.
 	ReadDiscreteInputs(request data.ModbusOperation) (response *data.ReadDiscreteInputsResponse, err error)
+	// ReadHoldingRegisters reads the contents of holding registers in this device.
 	ReadHoldingRegisters(request data.ModbusOperation) (response *data.ReadHoldingRegistersResponse, err error)
+	// ReadInputRegisters reads the contents of input registers in this device.
 	ReadInputRegisters(request data.ModbusOperation) (response *data.ReadInputRegistersResponse, err error)
+	// WriteSingleCoil writes a single coil in this device.
 	WriteSingleCoil(equest data.ModbusOperation) (response *data.WriteSingleCoilResponse, err error)
+	// WriteSingleRegister writes a single holding register in this device.
 	WriteSingleRegister(request data.ModbusOperation) (response *data.WriteSingleRegisterResponse, err error)
+	// WriteMultipleCoils writes multiple coils in this device.
 	WriteMultipleCoils(request data.ModbusOperation) (response *data.WriteMultipleCoilsResponse, err error)
+	// WriteMultipleRegisters writes multiple holding registers in this device.
 	WriteMultipleRegisters(request data.ModbusOperation) (response *data.WriteMultipleRegistersResponse, err error)
 }
 
+// PersistableRequestHandler is the interface that wraps the basic Modbus functions and provides methods to load and save server data.
+// This interface extends the RequestHandler interface, but as a result, adds slight performance penalty due to the need for locking.
 type PersistableRequestHandler interface {
 	RequestHandler
+	// Load loads the server data from the specified path.
 	Load(dataPath string) error
+	// Save saves the server data to the specified path.
 	Save(dataPath string) error
 }
 
+// DefaultHandler is the default implementation of the PersistableRequestHandler interface.
 type DefaultHandler struct {
 	logger           *zap.Logger
+	mu               sync.RWMutex
 	Coils            []bool
 	DiscreteInputs   []bool
 	HoldingRegisters []uint16
 	InputRegisters   []uint16
 }
 
-func NewDefaultHandler(logger *zap.Logger, coilCount, discreteInputCount, holdingRegisterCount, inputRegisterCount uint16) RequestHandler {
+// NewDefaultHandler creates a new DefaultHandler with the specified register counts. This is a PersistableRequestHandler, which means there is some internal locking
+// to provide thread safety when reading, loading, and saving data. If any of the register counts are 0, the default values are used.
+func NewDefaultHandler(logger *zap.Logger, coilCount, discreteInputCount, holdingRegisterCount, inputRegisterCount uint16) PersistableRequestHandler {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	if coilCount == 0 || discreteInputCount == 0 || holdingRegisterCount == 0 || inputRegisterCount == 0 {
 		logger.Warn("Invalid count, using default values")
-		coilCount = 65535
-		discreteInputCount = 65535
-		holdingRegisterCount = 65535
-		inputRegisterCount = 65535
+		coilCount = DefaultCoilCount
+		discreteInputCount = DefaultDiscreteInputCount
+		holdingRegisterCount = DefaultHoldingRegisterCount
+		inputRegisterCount = DefaultInputRegisterCount
 	}
 	return &DefaultHandler{
 		logger:           logger,
@@ -89,12 +123,18 @@ func (h *DefaultHandler) Handle(txn transport.ModbusTransaction) error {
 		// Write Multiple Registers
 		result, err = h.WriteMultipleRegisters(txn.Frame().PDU().Operation())
 	default:
-		h.logger.Debug("Received packet with unknown function code, discarding packet", zap.Any("packet", txn))
-		return common.ErrUnknownFunctionCode
+		h.logger.Debug("Received packet with unknown function code", zap.Any("packet", txn))
+		result = data.NewModbusOperationException(txn.Frame().PDU().FunctionCode(), data.IllegalFunction)
 	}
-	if err != nil {
+	switch err {
+	case nil:
+		break
+	case common.ErrIllegalDataAddress:
 		h.logger.Error("Failed to handle request", zap.Error(err))
-		return err
+		result = data.NewModbusOperationException(txn.Frame().PDU().FunctionCode(), data.IllegalDataAddress)
+	default:
+		h.logger.Error("Failed to handle request", zap.Error(err))
+		result = data.NewModbusOperationException(txn.Frame().PDU().FunctionCode(), data.ServerDeviceFailure)
 	}
 	pdu := transport.NewProtocolDataUnit(txn.Frame().PDU().FunctionCode(), result)
 	h.logger.Debug("Response", zap.Object("PDU", pdu))
@@ -102,61 +142,96 @@ func (h *DefaultHandler) Handle(txn transport.ModbusTransaction) error {
 }
 
 func getRange(offset, count uint16) (uint16, uint16) {
-	start := offset + 1
-	end := 1 + offset + count
+	start := offset
+	end := offset + count
 	return start, end
 }
 
 func (h *DefaultHandler) ReadCoils(operation data.ModbusOperation) (response data.ModbusReadOperation[[]bool], err error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	op := operation.(*data.ReadCoilsRequest)
 	h.logger.Debug("ReadCoils", zap.Uint16("Offset", op.Offset), zap.Uint16("Count", op.Count))
 	start, end := getRange(op.Offset, op.Count)
+	if int(end) > len(h.Coils) {
+		return nil, common.ErrIllegalDataAddress
+	}
 	results := h.Coils[start:end]
 	return data.NewReadCoilsResponse(results), nil
 }
 
 func (h *DefaultHandler) ReadDiscreteInputs(operation data.ModbusOperation) (response *data.ReadDiscreteInputsResponse, err error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	op := operation.(*data.ReadDiscreteInputsRequest)
 	h.logger.Debug("ReadDiscreteInputs", zap.Uint16("Offset", op.Offset), zap.Uint16("Count", op.Count))
 	start, end := getRange(op.Offset, op.Count)
+	if int(end) > len(h.HoldingRegisters) {
+		return nil, common.ErrIllegalDataAddress
+	}
 	results := h.DiscreteInputs[start:end]
 	return data.NewReadDiscreteInputsResponse(results), nil
 }
 
 func (h *DefaultHandler) ReadHoldingRegisters(operation data.ModbusOperation) (response *data.ReadHoldingRegistersResponse, err error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	op := operation.(*data.ReadHoldingRegistersRequest)
 	h.logger.Debug("ReadHoldingRegisters", zap.Uint16("Offset", op.Offset), zap.Uint16("Count", op.Count))
 	start, end := getRange(op.Offset, op.Count)
+	if int(end) > len(h.HoldingRegisters) {
+		return nil, common.ErrIllegalDataAddress
+	}
 	results := h.HoldingRegisters[start:end]
 	return data.NewReadHoldingRegistersResponse(results), nil
 }
 
 func (h *DefaultHandler) ReadInputRegisters(operation data.ModbusOperation) (response *data.ReadInputRegistersResponse, err error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	op := operation.(*data.ReadInputRegistersRequest)
 	h.logger.Debug("ReadInputRegisters", zap.Uint16("Offset", op.Offset), zap.Uint16("Count", op.Count))
 	start, end := getRange(op.Offset, op.Count)
+	if int(end) > len(h.InputRegisters) {
+		return nil, common.ErrIllegalDataAddress
+	}
 	results := h.InputRegisters[start:end]
 	return data.NewReadInputRegistersResponse(results), nil
 }
 
 func (h *DefaultHandler) WriteSingleCoil(operation data.ModbusOperation) (response *data.WriteSingleCoilResponse, err error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	op := operation.(*data.WriteSingleCoilRequest)
 	h.logger.Debug("WriteSingleCoil", zap.Uint16("Offset", op.Offset), zap.Bool("Value", op.Value))
+	if int(op.Offset+1) > len(h.Coils) {
+		return nil, common.ErrIllegalDataAddress
+	}
 	h.Coils[op.Offset+1] = op.Value
 	return data.NewWriteSingleCoilResponse(op.Offset, op.Value), nil
 }
 
 func (h *DefaultHandler) WriteSingleRegister(operation data.ModbusOperation) (response *data.WriteSingleRegisterResponse, err error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	op := operation.(*data.WriteSingleRegisterRequest)
 	h.logger.Debug("WriteSingleRegister", zap.Uint16("Offset", op.Offset), zap.Uint16("Value", op.Value))
+	if int(op.Offset+1) > len(h.HoldingRegisters) {
+		return nil, common.ErrIllegalDataAddress
+	}
 	h.HoldingRegisters[op.Offset+1] = op.Value
 	return data.NewWriteSingleRegisterResponse(op.Offset, op.Value), nil
 }
 
 func (h *DefaultHandler) WriteMultipleCoils(operation data.ModbusOperation) (response *data.WriteMultipleCoilsResponse, err error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	op := operation.(*data.WriteMultipleCoilsRequest)
 	h.logger.Debug("WriteMultipleCoils", zap.Uint16("Offset", op.Offset), zap.Bools("Values", op.Values))
-	start, _ := getRange(op.Offset, uint16(len(op.Values)))
+	start, end := getRange(op.Offset, uint16(len(op.Values)))
+	if int(end) > len(h.Coils) {
+		return nil, common.ErrIllegalDataAddress
+	}
 	for i, v := range op.Values {
 		h.Coils[start+uint16(i)] = v
 	}
@@ -164,9 +239,14 @@ func (h *DefaultHandler) WriteMultipleCoils(operation data.ModbusOperation) (res
 }
 
 func (h *DefaultHandler) WriteMultipleRegisters(operation data.ModbusOperation) (response *data.WriteMultipleRegistersResponse, err error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	op := operation.(*data.WriteMultipleRegistersRequest)
 	h.logger.Debug("WriteMultipleRegisters", zap.Uint16("Offset", op.Offset), zap.Uint16s("Values", op.Values))
-	start, _ := getRange(op.Offset, uint16(len(op.Values)))
+	start, end := getRange(op.Offset, uint16(len(op.Values)))
+	if int(end) > len(h.HoldingRegisters) {
+		return nil, common.ErrIllegalDataAddress
+	}
 	for i, v := range op.Values {
 		h.HoldingRegisters[start+uint16(i)] = v
 	}
@@ -174,46 +254,58 @@ func (h *DefaultHandler) WriteMultipleRegisters(operation data.ModbusOperation) 
 }
 
 func (h *DefaultHandler) Load(dataPath string) error {
-	coilFile := filepath.Join(dataPath, "coils.dat")
-	discreteInputFile := filepath.Join(dataPath, "discrete_inputs.dat")
-	holdingRegisterFile := filepath.Join(dataPath, "holding_registers.dat")
-	inputRegisterFile := filepath.Join(dataPath, "input_registers.dat")
-	if err := loadFromFile(coilFile, h.Coils); err != nil {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if _, err := os.Stat(dataPath); os.IsNotExist(err) {
 		return err
 	}
-	if err := loadFromFile(discreteInputFile, h.DiscreteInputs); err != nil {
+	coilsFilePath := filepath.Join(dataPath, coilsFile)
+	discreteInputsFilePath := filepath.Join(dataPath, discreteInputsFile)
+	holdingRegistersFilePath := filepath.Join(dataPath, holdingRegistersFile)
+	inputRegistersFilePath := filepath.Join(dataPath, inputRegistersFile)
+	if err := h.loadBoolArray(coilsFilePath, &h.Coils); err != nil {
 		return err
 	}
-	if err := loadFromFile(holdingRegisterFile, h.HoldingRegisters); err != nil {
+	if err := h.loadBoolArray(discreteInputsFilePath, &h.DiscreteInputs); err != nil {
 		return err
 	}
-	if err := loadFromFile(inputRegisterFile, h.InputRegisters); err != nil {
+	if err := h.loadUInt16Array(holdingRegistersFilePath, &h.HoldingRegisters); err != nil {
+		return err
+	}
+	if err := h.loadUInt16Array(inputRegistersFilePath, &h.InputRegisters); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (h *DefaultHandler) Save(dataPath string) error {
-	coilFile := filepath.Join(dataPath, "coils.dat")
-	discreteInputFile := filepath.Join(dataPath, "discrete_inputs.dat")
-	holdingRegisterFile := filepath.Join(dataPath, "holding_registers.dat")
-	inputRegisterFile := filepath.Join(dataPath, "input_registers.dat")
-	if err := saveToFile(coilFile, h.Coils); err != nil {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if _, err := os.Stat(dataPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(dataPath, 0744); err != nil {
+			return err
+		}
+	}
+	coilsFilePath := filepath.Join(dataPath, coilsFile)
+	discreteInputsFilePath := filepath.Join(dataPath, discreteInputsFile)
+	holdingRegistersFilePath := filepath.Join(dataPath, holdingRegistersFile)
+	inputRegistersFilePath := filepath.Join(dataPath, inputRegistersFile)
+	if err := h.saveBoolArray(coilsFilePath, h.Coils); err != nil {
 		return err
 	}
-	if err := saveToFile(discreteInputFile, h.DiscreteInputs); err != nil {
+	if err := h.saveBoolArray(discreteInputsFilePath, h.DiscreteInputs); err != nil {
 		return err
 	}
-	if err := saveToFile(holdingRegisterFile, h.HoldingRegisters); err != nil {
+	if err := h.saveUInt16Array(holdingRegistersFilePath, h.HoldingRegisters); err != nil {
 		return err
 	}
-	if err := saveToFile(inputRegisterFile, h.InputRegisters); err != nil {
+	if err := h.saveUInt16Array(inputRegistersFilePath, h.InputRegisters); err != nil {
 		return err
 	}
 	return nil
 }
 
-func saveToFile(filename string, data interface{}) error {
+func (h *DefaultHandler) saveBoolArray(filename string, data []bool) error {
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -223,13 +315,60 @@ func saveToFile(filename string, data interface{}) error {
 	return enc.Encode(data)
 }
 
-func loadFromFile(filename string, data interface{}) error {
+func (h *DefaultHandler) loadBoolArray(filename string, data *[]bool) error {
 	file, err := os.Open(filename)
-	if err != nil {
+	if os.IsNotExist(err) {
+		h.logger.Warn("File not found, using defaults", zap.String("filename", filename))
+		return nil
+	} else if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	decoder := gob.NewDecoder(file)
-	return decoder.Decode(data)
+	var fileData []bool
+	err = decoder.Decode(&fileData)
+	if err != nil {
+		return err
+	}
+	arrLength := len(fileData)
+	if arrLength > cap(*data) {
+		*data = make([]bool, len(fileData))
+	}
+	copy(*data, fileData)
+	return nil
+}
+
+func (h *DefaultHandler) saveUInt16Array(filename string, data []uint16) error {
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	enc := gob.NewEncoder(file)
+	return enc.Encode(data)
+}
+
+func (h *DefaultHandler) loadUInt16Array(filename string, data *[]uint16) error {
+	file, err := os.Open(filename)
+	if os.IsNotExist(err) {
+		h.logger.Warn("File not found, using defaults", zap.String("filename", filename))
+		return nil
+	} else if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	decoder := gob.NewDecoder(file)
+	var fileData []uint16
+	err = decoder.Decode(&fileData)
+	if err != nil {
+		return err
+	}
+	arrLength := len(fileData)
+	if arrLength > cap(*data) {
+		*data = make([]uint16, len(fileData))
+	}
+	copy(*data, fileData)
+	return nil
 }

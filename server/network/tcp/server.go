@@ -13,7 +13,7 @@ import (
 )
 
 func NewModbusServer(logger *zap.Logger, endpoint string) (server.ModbusServer, error) {
-	handler := server.NewDefaultHandler(logger, 65535, 65535, 65535, 65535)
+	handler := server.NewDefaultHandler(logger, server.DefaultCoilCount, server.DefaultDiscreteInputCount, server.DefaultHoldingRegisterCount, server.DefaultInputRegisterCount)
 	return NewModbusServerWithHandler(logger, endpoint, handler)
 }
 

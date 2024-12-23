@@ -625,8 +625,8 @@ func (r *WriteMultipleRegistersResponse) Bytes() []byte {
 	}
 }
 
-func NewModbusOperationException(requestFunction FunctionCode, code ExceptionCode) ModbusOperationException {
-	return ModbusOperationException{
+func NewModbusOperationException(requestFunction FunctionCode, code ExceptionCode) *ModbusOperationException {
+	return &ModbusOperationException{
 		ExceptionCode: code,
 	}
 }

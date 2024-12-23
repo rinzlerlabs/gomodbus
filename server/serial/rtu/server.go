@@ -1,7 +1,6 @@
 package rtu
 
 import (
-	"errors"
 	"io"
 	"time"
 
@@ -13,24 +12,17 @@ import (
 )
 
 func NewModbusServer(logger *zap.Logger, port sp.Port, serverAddress uint16) (server.ModbusServer, error) {
-	handler := server.NewDefaultHandler(logger, 65535, 65535, 65535, 65535)
+	handler := server.NewDefaultHandler(logger, server.DefaultCoilCount, server.DefaultDiscreteInputCount, server.DefaultHoldingRegisterCount, server.DefaultInputRegisterCount)
 	return NewModbusServerWithHandler(logger, port, serverAddress, handler)
 }
 
 func NewModbusServerWithHandler(logger *zap.Logger, port sp.Port, serverAddress uint16, handler server.RequestHandler) (server.ModbusServer, error) {
-	if handler == nil {
-		return nil, errors.New("handler is required")
-	}
 	internalPort := newRTUSerialPort(port)
 	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, rtu.NewModbusServerTransport(internalPort, logger, serverAddress))
 
 }
 
 func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {
-	if handler == nil {
-		return nil, errors.New("handler is required")
-	}
-
 	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, rtu.NewModbusServerTransport(stream, logger, serverAddress))
 
 }

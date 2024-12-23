@@ -18,6 +18,9 @@ type ModbusSerialServer interface {
 }
 
 func NewModbusSerialServerWithHandler(logger *zap.Logger, serverAddress uint16, handler server.RequestHandler, transport transport.Transport) (ModbusSerialServer, error) {
+	if handler == nil {
+		return nil, errors.New("handler is required")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &modbusSerialServer{
 		logger:    logger,

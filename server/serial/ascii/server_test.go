@@ -54,6 +54,13 @@ func waitForWrite(port *testSerialPort, desiredLength int) {
 	}
 }
 
+func TestNilHandlerReturnsError(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	port := &testSerialPort{}
+	_, err := newModbusServerWithHandler(logger, port, 0x04, nil)
+	assert.Error(t, err)
+}
+
 func TestAcceptRequest(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	port := &testSerialPort{
@@ -76,7 +83,6 @@ func TestAcceptRequest(t *testing.T) {
 }
 
 func TestReadCoils(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name     string
 		request  string
@@ -87,7 +93,7 @@ func TestReadCoils(t *testing.T) {
 			name:     "Valid",
 			request:  ":0401000A000DE4\r\n",
 			response: ":0401020A11DE\r\n",
-			coils:    []bool{true, true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, false, false, false, true, false, false, false, true, true, true, true},
+			coils:    []bool{true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, false, false, false, true, false, false, false, true, true, true, true},
 		},
 		{
 			name:    "InvalidRequest_MissingTrailers",
@@ -109,6 +115,8 @@ func TestReadCoils(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.request),
 			}
@@ -132,7 +140,6 @@ func TestReadCoils(t *testing.T) {
 }
 
 func TestReadDiscreteInputs(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name     string
 		request  string
@@ -142,7 +149,7 @@ func TestReadDiscreteInputs(t *testing.T) {
 		{
 			name:     "Valid",
 			request:  ":0402000A000DE3\r\n",
-			inputs:   []bool{true, true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, false, false, false, true, false, false, false, true, true, true, true},
+			inputs:   []bool{true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, false, false, false, true, false, false, false, true, true, true, true},
 			response: ":0402020A11DD\r\n",
 		},
 		{
@@ -161,6 +168,8 @@ func TestReadDiscreteInputs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.request),
 			}
@@ -184,7 +193,6 @@ func TestReadDiscreteInputs(t *testing.T) {
 }
 
 func TestReadHoldingRegisters(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name      string
 		request   string
@@ -194,7 +202,7 @@ func TestReadHoldingRegisters(t *testing.T) {
 		{
 			name:      "Valid",
 			request:   ":040300000002F7\r\n",
-			registers: []uint16{0x0007, 0x0006, 0x0005, 0x0004, 0x0003, 0x0002, 0x0001, 0x0000},
+			registers: []uint16{0x0006, 0x0005, 0x0004, 0x0003, 0x0002, 0x0001, 0x0000},
 			response:  ":04030400060005EA\r\n",
 		},
 		{
@@ -213,6 +221,8 @@ func TestReadHoldingRegisters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.request),
 			}
@@ -236,7 +246,6 @@ func TestReadHoldingRegisters(t *testing.T) {
 }
 
 func TestReadInputRegisters(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name      string
 		request   string
@@ -247,7 +256,7 @@ func TestReadInputRegisters(t *testing.T) {
 			name:      "Valid",
 			request:   ":040400000002F6\r\n",
 			response:  ":04040400060005E9\r\n",
-			registers: []uint16{0x0007, 0x0006, 0x0005, 0x0004, 0x0003, 0x0002, 0x0001, 0x0000},
+			registers: []uint16{0x0006, 0x0005, 0x0004, 0x0003, 0x0002, 0x0001, 0x0000},
 		},
 		{
 			name:    "InvalidRequest_MissingTrailers",
@@ -265,6 +274,8 @@ func TestReadInputRegisters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.request),
 			}
@@ -288,7 +299,6 @@ func TestReadInputRegisters(t *testing.T) {
 }
 
 func TestWriteSingleCoil(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name      string
 		request   string
@@ -319,6 +329,8 @@ func TestWriteSingleCoil(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.request),
 			}
@@ -342,7 +354,6 @@ func TestWriteSingleCoil(t *testing.T) {
 }
 
 func TestWriteSingleRegister(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name          string
 		request       string
@@ -373,6 +384,8 @@ func TestWriteSingleRegister(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.request),
 			}
@@ -396,7 +409,6 @@ func TestWriteSingleRegister(t *testing.T) {
 }
 
 func TestWriteMultipleCoils(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name              string
 		request           string
@@ -425,6 +437,8 @@ func TestWriteMultipleCoils(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.request),
 			}
@@ -440,7 +454,7 @@ func TestWriteMultipleCoils(t *testing.T) {
 			err = s.Stop()
 			assert.NoError(t, err)
 			if tt.expectedRegisters != nil {
-				assert.Equal(t, tt.expectedRegisters, handler.(*server.DefaultHandler).Coils[1:25])
+				assert.Equal(t, tt.expectedRegisters, handler.(*server.DefaultHandler).Coils[0:24])
 			}
 			assert.Equal(t, tt.response, string(port.writeData))
 		})
@@ -448,7 +462,6 @@ func TestWriteMultipleCoils(t *testing.T) {
 }
 
 func TestWriteMultipleRegisters(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name              string
 		request           string
@@ -477,6 +490,8 @@ func TestWriteMultipleRegisters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.request),
 			}
@@ -492,7 +507,7 @@ func TestWriteMultipleRegisters(t *testing.T) {
 			err = s.Stop()
 			assert.NoError(t, err)
 			if tt.expectedRegisters != nil {
-				assert.Equal(t, tt.expectedRegisters, handler.(*server.DefaultHandler).HoldingRegisters[1:3])
+				assert.Equal(t, tt.expectedRegisters, handler.(*server.DefaultHandler).HoldingRegisters[0:2])
 			}
 			assert.Equal(t, tt.response, string(port.writeData))
 		})

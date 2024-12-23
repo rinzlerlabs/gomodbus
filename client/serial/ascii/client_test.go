@@ -34,7 +34,6 @@ func (t *testSerialPort) Close() error {
 }
 
 func TestASCIIReadCoils(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
 		toServer        string
@@ -64,6 +63,8 @@ func TestASCIIReadCoils(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
@@ -81,7 +82,6 @@ func TestASCIIReadCoils(t *testing.T) {
 }
 
 func TestASCIIReadDiscreteInputs(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
 		toServer        string
@@ -105,6 +105,8 @@ func TestASCIIReadDiscreteInputs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
@@ -122,7 +124,6 @@ func TestASCIIReadDiscreteInputs(t *testing.T) {
 }
 
 func TestASCIIReadHoldingRegisters(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
 		toServer        string
@@ -146,6 +147,8 @@ func TestASCIIReadHoldingRegisters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
@@ -163,7 +166,6 @@ func TestASCIIReadHoldingRegisters(t *testing.T) {
 }
 
 func TestASCIIReadInputRegisters(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
 		toServer        string
@@ -187,6 +189,8 @@ func TestASCIIReadInputRegisters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
@@ -204,7 +208,6 @@ func TestASCIIReadInputRegisters(t *testing.T) {
 }
 
 func TestASCIIWriteSingleCoil(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
 		toServer        string
@@ -234,6 +237,8 @@ func TestASCIIWriteSingleCoil(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
@@ -250,7 +255,6 @@ func TestASCIIWriteSingleCoil(t *testing.T) {
 }
 
 func TestASCIIWriteSingleRegister(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
 		toServer        string
@@ -280,6 +284,8 @@ func TestASCIIWriteSingleRegister(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
@@ -296,7 +302,6 @@ func TestASCIIWriteSingleRegister(t *testing.T) {
 }
 
 func TestASCIIWriteMultipleCoils(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
 		toServer        string
@@ -320,6 +325,8 @@ func TestASCIIWriteMultipleCoils(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
@@ -336,7 +343,6 @@ func TestASCIIWriteMultipleCoils(t *testing.T) {
 }
 
 func TestASCIIWriteMultipleRegisters(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	tests := []struct {
 		name            string
 		toServer        string
@@ -360,6 +366,8 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			logger := zaptest.NewLogger(t)
 			port := &testSerialPort{
 				readData: []byte(tt.fromServer),
 			}
