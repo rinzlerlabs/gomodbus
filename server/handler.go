@@ -1,6 +1,10 @@
 package server
 
 import (
+	"encoding/gob"
+	"os"
+	"path/filepath"
+
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
@@ -19,6 +23,12 @@ type RequestHandler interface {
 	WriteSingleRegister(request data.ModbusOperation) (response *data.WriteSingleRegisterResponse, err error)
 	WriteMultipleCoils(request data.ModbusOperation) (response *data.WriteMultipleCoilsResponse, err error)
 	WriteMultipleRegisters(request data.ModbusOperation) (response *data.WriteMultipleRegistersResponse, err error)
+}
+
+type PersistableRequestHandler interface {
+	RequestHandler
+	Load(dataPath string) error
+	Save(dataPath string) error
 }
 
 type DefaultHandler struct {
@@ -161,4 +171,65 @@ func (h *DefaultHandler) WriteMultipleRegisters(operation data.ModbusOperation) 
 		h.HoldingRegisters[start+uint16(i)] = v
 	}
 	return data.NewWriteMultipleRegistersResponse(op.Offset, uint16(len(op.Values))), nil
+}
+
+func (h *DefaultHandler) Load(dataPath string) error {
+	coilFile := filepath.Join(dataPath, "coils.dat")
+	discreteInputFile := filepath.Join(dataPath, "discrete_inputs.dat")
+	holdingRegisterFile := filepath.Join(dataPath, "holding_registers.dat")
+	inputRegisterFile := filepath.Join(dataPath, "input_registers.dat")
+	if err := loadFromFile(coilFile, h.Coils); err != nil {
+		return err
+	}
+	if err := loadFromFile(discreteInputFile, h.DiscreteInputs); err != nil {
+		return err
+	}
+	if err := loadFromFile(holdingRegisterFile, h.HoldingRegisters); err != nil {
+		return err
+	}
+	if err := loadFromFile(inputRegisterFile, h.InputRegisters); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *DefaultHandler) Save(dataPath string) error {
+	coilFile := filepath.Join(dataPath, "coils.dat")
+	discreteInputFile := filepath.Join(dataPath, "discrete_inputs.dat")
+	holdingRegisterFile := filepath.Join(dataPath, "holding_registers.dat")
+	inputRegisterFile := filepath.Join(dataPath, "input_registers.dat")
+	if err := saveToFile(coilFile, h.Coils); err != nil {
+		return err
+	}
+	if err := saveToFile(discreteInputFile, h.DiscreteInputs); err != nil {
+		return err
+	}
+	if err := saveToFile(holdingRegisterFile, h.HoldingRegisters); err != nil {
+		return err
+	}
+	if err := saveToFile(inputRegisterFile, h.InputRegisters); err != nil {
+		return err
+	}
+	return nil
+}
+
+func saveToFile(filename string, data interface{}) error {
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	enc := gob.NewEncoder(file)
+	return enc.Encode(data)
+}
+
+func loadFromFile(filename string, data interface{}) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	decoder := gob.NewDecoder(file)
+	return decoder.Decode(data)
 }

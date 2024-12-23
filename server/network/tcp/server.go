@@ -41,6 +41,7 @@ type modbusServer struct {
 	endpoint  string
 	stats     *server.ServerStats
 	wg        sync.WaitGroup
+	mu        sync.Mutex
 }
 
 func (s *modbusServer) IsRunning() bool {
@@ -48,6 +49,8 @@ func (s *modbusServer) IsRunning() bool {
 }
 
 func (s *modbusServer) Start() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.isRunning {
 		s.logger.Debug("Modbus TCP server already running")
 		return nil
@@ -60,6 +63,8 @@ func (s *modbusServer) Start() error {
 }
 
 func (s *modbusServer) Stop() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.logger.Info("Stopping Modbus TCP server")
 	s.isRunning = false
 	s.cancel()
@@ -67,6 +72,8 @@ func (s *modbusServer) Stop() error {
 }
 
 func (s *modbusServer) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.logger.Info("Closing Modbus TCP server")
 	s.cancel()
 	s.logger.Info("Waiting for all clients to disconnect")
@@ -107,6 +114,7 @@ func (s *modbusServer) handleClient(conn net.Conn) {
 	defer s.wg.Done()
 	defer conn.Close()
 	t := tcp.NewModbusTransport(conn, s.logger)
+	defer t.Close()
 	for {
 		select {
 		case <-s.cancelCtx.Done():
