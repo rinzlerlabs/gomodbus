@@ -24,7 +24,7 @@ func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, endpoin
 	conn, err := net.Dial(u.Scheme, u.Host)
 	if err != nil {
 		logger.Error("Failed to connect to endpoint", zap.String("endpoint", endpoint), zap.Error(err))
-		panic(err)
+		return nil, err
 	}
 	return client.NewModbusClient(ctx, logger, transport.NewModbusTransport(conn, logger), NewNetworkRequestCreator(transport.NewModbusTransaction, transport.NewModbusFrame), responseTimeout), nil
 }
