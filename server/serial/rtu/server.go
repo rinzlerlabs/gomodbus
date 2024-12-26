@@ -23,11 +23,16 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverI
 		return nil, errors.New("handler is required")
 	}
 
-	transportCreator := func(s io.ReadWriteCloser) transport.Transport {
-		internalPort := newRTUSerialPort(s)
-		return rtu.NewModbusServerTransport(internalPort, logger, serverId)
+	transportCreator := func() (transport.Transport, error) {
+		port, err := sp.Open(settings)
+		if err != nil {
+			logger.Error("Failed to open serial port", zap.Error(err))
+			return nil, err
+		}
+		internalPort := newRTUSerialPort(port)
+		return rtu.NewModbusServerTransport(internalPort, logger, serverId), nil
 	}
-	return serial.NewModbusSerialServerWithCreator(logger, serverId, handler, transportCreator)
+	return serial.NewModbusSerialServerWithCreator(logger, settings, serverId, handler, transportCreator)
 }
 
 func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {

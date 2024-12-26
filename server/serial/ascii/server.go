@@ -22,11 +22,16 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverA
 		return nil, errors.New("handler is required")
 	}
 
-	transportCreator := func(stream io.ReadWriteCloser) transport.Transport {
-		return ascii.NewModbusTransport(stream, logger)
+	transportCreator := func() (transport.Transport, error) {
+		port, err := sp.Open(settings)
+		if err != nil {
+			logger.Error("Failed to open serial port", zap.Error(err))
+			return nil, err
+		}
+		return ascii.NewModbusTransport(port, logger), nil
 	}
 
-	return serial.NewModbusSerialServerWithCreator(logger, serverAddress, handler, transportCreator)
+	return serial.NewModbusSerialServerWithCreator(logger, settings, serverAddress, handler, transportCreator)
 }
 
 // newModbusServerWithHandler creates a new Modbus ASCII server with a io.ReadWriter stream instead of an explicit port, for testing purposes, and a RequestHandler.

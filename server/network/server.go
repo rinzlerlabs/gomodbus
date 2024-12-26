@@ -75,8 +75,12 @@ func (s *modbusServer) Start() error {
 		return nil
 	}
 
-	if s.listener == nil {
+	if s.handler == nil {
+		s.logger.Error("Handler is required")
+		return errors.New("handler is required")
+	}
 
+	if s.listener == nil {
 		u, err := url.Parse(s.endpoint)
 		if err != nil {
 			s.logger.Error("Error parsing endpoint", zap.Error(err))

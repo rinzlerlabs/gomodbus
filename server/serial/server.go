@@ -18,7 +18,7 @@ type ModbusSerialServer interface {
 	Handler() server.RequestHandler
 }
 
-func NewModbusSerialServerWithCreator(logger *zap.Logger, serverAddress uint16, handler server.RequestHandler, transportCreator func(io.ReadWriteCloser) transport.Transport) (ModbusSerialServer, error) {
+func NewModbusSerialServerWithCreator(logger *zap.Logger, serialSettings *sp.Config, serverAddress uint16, handler server.RequestHandler, transportCreator func() (transport.Transport, error)) (ModbusSerialServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
@@ -28,6 +28,7 @@ func NewModbusSerialServerWithCreator(logger *zap.Logger, serverAddress uint16, 
 		handler:          handler,
 		cancelCtx:        ctx,
 		cancel:           cancel,
+		serialSettings:   serialSettings,
 		address:          serverAddress,
 		transportCreator: transportCreator,
 		stats:            server.NewServerStats(),
@@ -58,7 +59,7 @@ type modbusSerialServer struct {
 	mu               sync.Mutex
 	address          uint16
 	serialSettings   *sp.Config
-	transportCreator func(io.ReadWriteCloser) transport.Transport
+	transportCreator func() (transport.Transport, error)
 	transport        transport.Transport
 	isRunning        bool
 	wg               sync.WaitGroup
@@ -78,12 +79,11 @@ func (s *modbusSerialServer) Start() error {
 	}
 
 	if s.transport == nil {
-		port, err := sp.Open(s.serialSettings)
+		transport, err := s.transportCreator()
 		if err != nil {
-			s.logger.Error("Failed to open serial port", zap.Error(err))
 			return err
 		}
-		s.transport = s.transportCreator(port)
+		s.transport = transport
 	}
 
 	if s.cancel == nil {
