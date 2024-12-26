@@ -26,7 +26,7 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverA
 		return ascii.NewModbusTransport(stream, logger)
 	}
 
-	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, transportCreator)
+	return serial.NewModbusSerialServerWithCreator(logger, serverAddress, handler, transportCreator)
 }
 
 // newModbusServerWithHandler creates a new Modbus ASCII server with a io.ReadWriter stream instead of an explicit port, for testing purposes, and a RequestHandler.
@@ -35,9 +35,5 @@ func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, s
 		return nil, errors.New("handler is required")
 	}
 
-	transportCreator := func(stream io.ReadWriteCloser) transport.Transport {
-		return ascii.NewModbusTransport(stream, logger)
-	}
-
-	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, transportCreator)
+	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, ascii.NewModbusTransport(stream, logger))
 }

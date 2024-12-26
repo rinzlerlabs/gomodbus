@@ -149,14 +149,14 @@ func TestAcceptRequest(t *testing.T) {
 	s.Start()
 	assert.NoError(t, err)
 
-	waitForWrite(listener, 7)
+	waitForWrite(listener, 11)
 
 	err = s.Close()
 	assert.NoError(t, err)
 
 	adu := listener.writeData
 
-	assert.Equal(t, "0002000000040101020000", hex.EncodeToString(adu))
+	assert.Equal(t, "0002000000040101020000", strings.ToUpper(hex.EncodeToString(adu)))
 }
 
 func TestReadCoils(t *testing.T) {

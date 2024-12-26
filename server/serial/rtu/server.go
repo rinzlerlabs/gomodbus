@@ -27,15 +27,11 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverI
 		internalPort := newRTUSerialPort(s)
 		return rtu.NewModbusServerTransport(internalPort, logger, serverId)
 	}
-	return serial.NewModbusSerialServerWithHandler(logger, serverId, handler, transportCreator)
+	return serial.NewModbusSerialServerWithCreator(logger, serverId, handler, transportCreator)
 }
 
 func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {
-	transportCreator := func(s io.ReadWriteCloser) transport.Transport {
-		return rtu.NewModbusServerTransport(s, logger, serverAddress)
-	}
-	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, transportCreator)
-
+	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, rtu.NewModbusServerTransport(stream, logger, serverAddress))
 }
 
 func newRTUSerialPort(port io.ReadWriteCloser) *rtuSerialPort {
