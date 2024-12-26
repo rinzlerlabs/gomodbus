@@ -26,7 +26,7 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 	if err != nil {
 		return nil, err
 	}
-	listener, err := net.Listen(u.Scheme, endpoint)
+	listener, err := net.Listen(u.Scheme, u.Host)
 	if err != nil {
 		return nil, err
 	}
