@@ -1,6 +1,7 @@
 package rtu
 
 import (
+	"errors"
 	"io"
 	"time"
 
@@ -11,15 +12,21 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewModbusServer(logger *zap.Logger, port sp.Port, serverAddress uint16) (server.ModbusServer, error) {
+func NewModbusServer(logger *zap.Logger, settings *sp.Config, serverId uint16) (server.ModbusServer, error) {
 	handler := server.NewDefaultHandler(logger, server.DefaultCoilCount, server.DefaultDiscreteInputCount, server.DefaultHoldingRegisterCount, server.DefaultInputRegisterCount)
-	return NewModbusServerWithHandler(logger, port, serverAddress, handler)
+	return NewModbusServerWithHandler(logger, settings, serverId, handler)
 }
 
-func NewModbusServerWithHandler(logger *zap.Logger, port sp.Port, serverAddress uint16, handler server.RequestHandler) (server.ModbusServer, error) {
+func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverId uint16, handler server.RequestHandler) (server.ModbusServer, error) {
+	if handler == nil {
+		return nil, errors.New("handler is required")
+	}
+	port, err := sp.Open(settings)
+	if err != nil {
+		return nil, err
+	}
 	internalPort := newRTUSerialPort(port)
-	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, rtu.NewModbusServerTransport(internalPort, logger, serverAddress))
-
+	return serial.NewModbusSerialServerWithHandler(logger, serverId, handler, rtu.NewModbusServerTransport(internalPort, logger, serverId))
 }
 
 func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {

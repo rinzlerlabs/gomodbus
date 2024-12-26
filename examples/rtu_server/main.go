@@ -4,8 +4,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/goburrow/serial"
+	sp "github.com/goburrow/serial"
 	rtu "github.com/rinzlerlabs/gomodbus/server/serial/rtu"
+
 	"go.uber.org/zap"
 )
 
@@ -14,17 +15,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	port, err := serial.Open(&serial.Config{
-		Address:  "/dev/ttyUSB0",
+	settings := &sp.Config{
+		Address:  "rtu:///dev/ttyUSB0",
 		BaudRate: 19200,
 		DataBits: 8,
 		Parity:   "N",
 		StopBits: 2,
-	})
-	if err != nil {
-		panic(err)
 	}
-	server, err := rtu.NewModbusServer(logger, port, 91)
+	server, err := rtu.NewModbusServer(logger, settings, 91)
 	if err != nil {
 		panic(err)
 	}

@@ -80,10 +80,7 @@ func TestHandlerReadCoils(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := NewDefaultHandler(logger, tt.coilCount, 10, 10, 10)
-			req := &data.ReadCoilsRequest{
-				Offset: tt.readOffset,
-				Count:  tt.readQuantity,
-			}
+			req := data.NewReadCoilsRequest(tt.readOffset, tt.readQuantity)
 			_, err := handler.ReadCoils(req)
 			if tt.expectedError != nil {
 				assert.Equal(t, tt.expectedError, err)

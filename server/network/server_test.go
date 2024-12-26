@@ -1,7 +1,11 @@
-package ascii
+package network
 
 import (
 	"encoding/hex"
+	"fmt"
+	"io"
+	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -11,34 +15,107 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-type testSerialPort struct {
+// Read coils offset 1 size 6 00 08 00 00 00 06 01 01 00 01 00 06
+
+type timeoutError struct{}
+
+func (t *timeoutError) Error() string {
+	return "timeout"
+}
+
+func (t *timeoutError) Timeout() bool {
+	return true
+}
+
+type testListener struct {
 	mu        sync.Mutex
-	readData  []byte
+	readData  [][]byte
 	writeData []byte
 }
 
-func (t *testSerialPort) Read(b []byte) (n int, err error) {
+func (t *testListener) Accept() (net.Conn, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-
 	if len(t.readData) == 0 {
-		return 0, nil
+		return nil, &net.OpError{Err: &timeoutError{}}
 	}
-	lenRead := copy(b, t.readData)
-	t.readData = t.readData[lenRead:]
-	return lenRead, nil
+	r := t.readData[0]
+	t.readData = t.readData[1:]
+
+	return &testConnection{readData: r, listener: t}, nil
 }
 
-func (t *testSerialPort) Write(b []byte) (n int, err error) {
-	t.writeData = b
-	return len(b), nil
-}
-
-func (t *testSerialPort) Close() error {
+func (t *testListener) Close() error {
 	return nil
 }
 
-func waitForWrite(port *testSerialPort, desiredLength int) {
+func (t *testListener) Addr() net.Addr {
+	return nil
+}
+
+type testConnection struct {
+	readData []byte
+	listener *testListener
+}
+
+// LocalAddr implements net.Conn.
+func (t *testConnection) LocalAddr() net.Addr {
+	panic("unimplemented")
+}
+
+// SetDeadline implements net.Conn.
+func (*testConnection) SetDeadline(t time.Time) error {
+	panic("unimplemented")
+}
+
+// SetReadDeadline implements net.Conn.
+func (*testConnection) SetReadDeadline(t time.Time) error {
+	panic("unimplemented")
+}
+
+// SetWriteDeadline implements net.Conn.
+func (*testConnection) SetWriteDeadline(t time.Time) error {
+	panic("unimplemented")
+}
+
+func (c *testConnection) Read(b []byte) (n int, err error) {
+	if len(c.readData) == 0 {
+		return 0, io.EOF
+	}
+	d, e := hex.DecodeString(string(c.readData))
+	if e != nil {
+		return 0, e
+	}
+	lenRead := copy(b, d)
+	c.readData = c.readData[lenRead*2:]
+	return lenRead, nil
+}
+
+func (c *testConnection) Write(b []byte) (n int, err error) {
+	fmt.Printf("Write: %v\n", len(b))
+	c.listener.writeData = b
+	return len(b), nil
+}
+
+func (c *testConnection) Close() error {
+	return nil
+}
+
+func (c *testConnection) RemoteAddr() net.Addr {
+	return &addr{}
+}
+
+type addr struct{}
+
+func (a *addr) Network() string {
+	return "tcp"
+}
+
+func (a *addr) String() string {
+	return "localhost:502"
+}
+
+func waitForWrite(listener *testListener, desiredLength int) {
 	timeout := time.After(1 * time.Second)
 	tick := time.Tick(10 * time.Millisecond)
 
@@ -47,7 +124,7 @@ func waitForWrite(port *testSerialPort, desiredLength int) {
 		case <-timeout:
 			return
 		case <-tick:
-			if len(port.writeData) == desiredLength {
+			if len(listener.writeData)*2 == desiredLength {
 				return
 			}
 		}
@@ -56,30 +133,30 @@ func waitForWrite(port *testSerialPort, desiredLength int) {
 
 func TestNilHandlerReturnsError(t *testing.T) {
 	logger := zaptest.NewLogger(t)
-	port := &testSerialPort{}
-	_, err := newModbusServerWithHandler(logger, port, 0x04, nil)
+	listener := &testListener{}
+	_, err := newModbusServerWithHandler(logger, listener, nil)
 	assert.Error(t, err)
 }
 
 func TestAcceptRequest(t *testing.T) {
 	logger := zaptest.NewLogger(t)
-	port := &testSerialPort{
-		readData: []byte(":0401000A000DE4\r\n"),
+	listener := &testListener{
+		readData: [][]byte{[]byte("0002000000050101000A000D")},
 	}
-	s, err := newModbusServerWithHandler(logger, port, 0x04, server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
+	s, err := newModbusServerWithHandler(logger, listener, server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 	assert.NoError(t, err)
 
 	s.Start()
 	assert.NoError(t, err)
 
-	waitForWrite(port, 15)
+	waitForWrite(listener, 7)
 
 	err = s.Close()
 	assert.NoError(t, err)
 
-	adu := port.writeData
+	adu := listener.writeData
 
-	assert.Equal(t, []byte(":0401020000F9\r\n"), adu)
+	assert.Equal(t, "0002000000040101020000", hex.EncodeToString(adu))
 }
 
 func TestReadCoils(t *testing.T) {
@@ -91,25 +168,9 @@ func TestReadCoils(t *testing.T) {
 	}{
 		{
 			name:     "Valid",
-			request:  ":0401000A000DE4\r\n",
-			response: ":0401020A11DE\r\n",
+			request:  "0002000000050101000A000D",
+			response: "0002000000040101020A11",
 			coils:    []bool{true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, false, false, false, true, false, false, false, true, true, true, true},
-		},
-		{
-			name:    "InvalidRequest_MissingTrailers",
-			request: ":0401000A000DE4",
-		},
-		{
-			name:    "InvalidRequest_InvalidStart",
-			request: "0401000A000DE4\r\n",
-		},
-		{
-			name:    "InvalidRequest_IvalidChecksum",
-			request: ":0401000A000DE5\r\n",
-		},
-		{
-			name:    "InvalidRequest_NotOurAddress",
-			request: ":0501000A000DE3\r\n",
 		},
 	}
 
@@ -117,24 +178,24 @@ func TestReadCoils(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			logger := zaptest.NewLogger(t)
-			port := &testSerialPort{
-				readData: []byte(tt.request),
+			listener := &testListener{
+				readData: [][]byte{[]byte(tt.request)},
 			}
 			handler := server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024)
 			if tt.coils != nil {
 				handler.(*server.DefaultHandler).Coils = tt.coils
 			}
-			s, err := newModbusServerWithHandler(logger, port, 0x04, handler)
+			s, err := newModbusServerWithHandler(logger, listener, handler)
 			assert.NoError(t, err)
 
 			s.Start()
 			assert.NoError(t, err)
 
-			waitForWrite(port, len(tt.response))
+			waitForWrite(listener, len(tt.response))
 
 			err = s.Close()
 			assert.NoError(t, err)
-			assert.Equal(t, tt.response, string(port.writeData))
+			assert.Equal(t, tt.response, strings.ToUpper(hex.EncodeToString(listener.writeData)))
 		})
 	}
 }
@@ -148,21 +209,9 @@ func TestReadDiscreteInputs(t *testing.T) {
 	}{
 		{
 			name:     "Valid",
-			request:  ":0402000A000DE3\r\n",
+			request:  "0002000000050102000A000D",
 			inputs:   []bool{true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, false, false, false, true, false, false, false, true, true, true, true},
-			response: ":0402020A11DD\r\n",
-		},
-		{
-			name:    "InvalidRequest_MissingTrailers",
-			request: ":0402000A000DE3",
-		},
-		{
-			name:    "InvalidRequest_InvalidStart",
-			request: "0402000A000DE3\r\n",
-		},
-		{
-			name:    "InvalidRequest_NotOurAddress",
-			request: ":0502000A000DE2\r\n",
+			response: "0002000000040102020A11",
 		},
 	}
 
@@ -170,24 +219,24 @@ func TestReadDiscreteInputs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			logger := zaptest.NewLogger(t)
-			port := &testSerialPort{
-				readData: []byte(tt.request),
+			listener := &testListener{
+				readData: [][]byte{[]byte(tt.request)},
 			}
 			handler := server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024)
 			if tt.inputs != nil {
 				handler.(*server.DefaultHandler).DiscreteInputs = tt.inputs
 			}
-			s, err := newModbusServerWithHandler(logger, port, 0x04, handler)
+			s, err := newModbusServerWithHandler(logger, listener, handler)
 			assert.NoError(t, err)
 
 			s.Start()
 			assert.NoError(t, err)
 
-			waitForWrite(port, len(tt.response))
+			waitForWrite(listener, len(tt.response))
 
 			err = s.Close()
 			assert.NoError(t, err)
-			assert.Equal(t, tt.response, string(port.writeData))
+			assert.Equal(t, tt.response, strings.ToUpper(hex.EncodeToString(listener.writeData)))
 		})
 	}
 }
@@ -201,21 +250,9 @@ func TestReadHoldingRegisters(t *testing.T) {
 	}{
 		{
 			name:      "Valid",
-			request:   ":040300000002F7\r\n",
+			request:   "000200000005010300000002",
 			registers: []uint16{0x0006, 0x0005, 0x0004, 0x0003, 0x0002, 0x0001, 0x0000},
-			response:  ":04030400060005EA\r\n",
-		},
-		{
-			name:    "InvalidRequest_MissingTrailers",
-			request: ":040300000002F7",
-		},
-		{
-			name:    "InvalidRequest_InvalidStart",
-			request: "040300000002F7\r\n",
-		},
-		{
-			name:    "InvalidRequest_NotOurAddress",
-			request: ":010300000002FA\r\n",
+			response:  "00020000000601030400060005",
 		},
 	}
 
@@ -223,24 +260,24 @@ func TestReadHoldingRegisters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			logger := zaptest.NewLogger(t)
-			port := &testSerialPort{
-				readData: []byte(tt.request),
+			listener := &testListener{
+				readData: [][]byte{[]byte(tt.request)},
 			}
 			handler := server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024)
 			if tt.registers != nil {
 				handler.(*server.DefaultHandler).HoldingRegisters = tt.registers
 			}
-			s, err := newModbusServerWithHandler(logger, port, 0x04, handler)
+			s, err := newModbusServerWithHandler(logger, listener, handler)
 			assert.NoError(t, err)
 
 			s.Start()
 			assert.NoError(t, err)
 
-			waitForWrite(port, len(tt.response))
+			waitForWrite(listener, len(tt.response))
 
 			err = s.Close()
 			assert.NoError(t, err)
-			assert.Equal(t, tt.response, string(port.writeData))
+			assert.Equal(t, tt.response, strings.ToUpper(hex.EncodeToString(listener.writeData)))
 		})
 	}
 }
@@ -254,21 +291,9 @@ func TestReadInputRegisters(t *testing.T) {
 	}{
 		{
 			name:      "Valid",
-			request:   ":040400000002F6\r\n",
-			response:  ":04040400060005E9\r\n",
+			request:   "000200000005010400000002",
+			response:  "00020000000601040400060005",
 			registers: []uint16{0x0006, 0x0005, 0x0004, 0x0003, 0x0002, 0x0001, 0x0000},
-		},
-		{
-			name:    "InvalidRequest_MissingTrailers",
-			request: ":040400000002F6",
-		},
-		{
-			name:    "InvalidRequest_InvalidStart",
-			request: "040400000002F6\r\n",
-		},
-		{
-			name:    "InvalidRequest_NotOurAddress",
-			request: ":050400000002F5\r\n",
 		},
 	}
 
@@ -276,24 +301,24 @@ func TestReadInputRegisters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			logger := zaptest.NewLogger(t)
-			port := &testSerialPort{
-				readData: []byte(tt.request),
+			listener := &testListener{
+				readData: [][]byte{[]byte(tt.request)},
 			}
 			handler := server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024)
 			if tt.registers != nil {
 				handler.(*server.DefaultHandler).InputRegisters = tt.registers
 			}
-			s, err := newModbusServerWithHandler(logger, port, 0x04, handler)
+			s, err := newModbusServerWithHandler(logger, listener, handler)
 			assert.NoError(t, err)
 
 			s.Start()
 			assert.NoError(t, err)
 
-			waitForWrite(port, len(tt.response))
+			waitForWrite(listener, len(tt.response))
 
 			err = s.Close()
 			assert.NoError(t, err)
-			assert.Equal(t, tt.response, string(port.writeData))
+			assert.Equal(t, tt.response, strings.ToUpper(hex.EncodeToString(listener.writeData)))
 		})
 	}
 }
@@ -308,22 +333,10 @@ func TestWriteSingleCoil(t *testing.T) {
 	}{
 		{
 			name:      "Valid",
-			request:   ":0405000AFF00EE\r\n",
-			response:  ":0405000AFF00EE\r\n",
+			request:   "0002000000050105000AFF00",
+			response:  "0002000000050105000AFF00",
 			coilIndex: 10,
 			coilValue: true,
-		},
-		{
-			name:    "InvalidRequest_MissingTrailers",
-			request: ":0405000AFF00EE",
-		},
-		{
-			name:    "InvalidRequest_InvalidStart",
-			request: "0405000AFF00EE\r\n",
-		},
-		{
-			name:    "InvalidRequest_NotOurAddress",
-			request: ":0505000AFF00ED\r\n",
 		},
 	}
 
@@ -331,24 +344,24 @@ func TestWriteSingleCoil(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			logger := zaptest.NewLogger(t)
-			port := &testSerialPort{
-				readData: []byte(tt.request),
+			listener := &testListener{
+				readData: [][]byte{[]byte(tt.request)},
 			}
 			handler := server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024)
-			s, err := newModbusServerWithHandler(logger, port, 0x04, handler)
+			s, err := newModbusServerWithHandler(logger, listener, handler)
 			assert.NoError(t, err)
 
 			s.Start()
 			assert.NoError(t, err)
 
-			waitForWrite(port, len(tt.response))
+			waitForWrite(listener, len(tt.response))
 
 			err = s.Close()
 			assert.NoError(t, err)
 			if tt.coilIndex > 0 {
 				assert.Equal(t, tt.coilValue, handler.(*server.DefaultHandler).Coils[tt.coilIndex+1])
 			}
-			assert.Equal(t, tt.response, string(port.writeData))
+			assert.Equal(t, tt.response, strings.ToUpper(hex.EncodeToString(listener.writeData)))
 		})
 	}
 }
@@ -363,22 +376,10 @@ func TestWriteSingleRegister(t *testing.T) {
 	}{
 		{
 			name:          "Valid",
-			request:       ":040600100003E3\r\n",
-			response:      ":040600100003E3\r\n",
+			request:       "000200000005010600100003",
+			response:      "000200000005010600100003",
 			registerIndex: 0x10,
 			registerValue: 0x0003,
-		},
-		{
-			name:    "InvalidRequest_MissingTrailers",
-			request: ":040600100003E3",
-		},
-		{
-			name:    "InvalidRequest_InvalidStart",
-			request: "040600100003E3\r\n",
-		},
-		{
-			name:    "InvalidRequest_NotOurAddress",
-			request: ":050600100003E2\r\n",
 		},
 	}
 
@@ -386,24 +387,24 @@ func TestWriteSingleRegister(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			logger := zaptest.NewLogger(t)
-			port := &testSerialPort{
-				readData: []byte(tt.request),
+			listener := &testListener{
+				readData: [][]byte{[]byte(tt.request)},
 			}
 			handler := server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024)
-			s, err := newModbusServerWithHandler(logger, port, 0x04, handler)
+			s, err := newModbusServerWithHandler(logger, listener, handler)
 			assert.NoError(t, err)
 
 			s.Start()
 			assert.NoError(t, err)
 
-			waitForWrite(port, len(tt.response))
+			waitForWrite(listener, len(tt.response))
 
 			err = s.Close()
 			assert.NoError(t, err)
 			if tt.registerIndex > 0 {
 				assert.Equal(t, tt.registerValue, handler.(*server.DefaultHandler).HoldingRegisters[tt.registerIndex+1])
 			}
-			assert.Equal(t, tt.response, string(port.writeData))
+			assert.Equal(t, tt.response, strings.ToUpper(hex.EncodeToString(listener.writeData)))
 		})
 	}
 }
@@ -417,21 +418,9 @@ func TestWriteMultipleCoils(t *testing.T) {
 	}{
 		{
 			name:              "Valid",
-			request:           ":040F000000180301830747\r\n",
-			response:          ":040F00000018D5\r\n",
+			request:           "000200000018010F0000001803018307",
+			response:          "000200000005010F00000018",
 			expectedRegisters: []bool{true, false, false, false, false, false, false, false, true, true, false, false, false, false, false, true, true, true, true, false, false, false, false, false},
-		},
-		{
-			name:    "InvalidRequest_MissingTrailers",
-			request: ":040F000000180301830747",
-		},
-		{
-			name:    "InvalidRequest_InvalidStart",
-			request: "040F000000180301830747\r\n",
-		},
-		{
-			name:    "InvalidRequest_NotOurAddress",
-			request: ":050F000000180301830746\r\n",
 		},
 	}
 
@@ -439,24 +428,24 @@ func TestWriteMultipleCoils(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			logger := zaptest.NewLogger(t)
-			port := &testSerialPort{
-				readData: []byte(tt.request),
+			listener := &testListener{
+				readData: [][]byte{[]byte(tt.request)},
 			}
 			handler := server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024)
-			s, err := newModbusServerWithHandler(logger, port, 0x04, handler)
+			s, err := newModbusServerWithHandler(logger, listener, handler)
 			assert.NoError(t, err)
 
 			s.Start()
 			assert.NoError(t, err)
 
-			waitForWrite(port, len(tt.response))
+			waitForWrite(listener, len(tt.response))
 
 			err = s.Close()
 			assert.NoError(t, err)
 			if tt.expectedRegisters != nil {
 				assert.Equal(t, tt.expectedRegisters, handler.(*server.DefaultHandler).Coils[0:24])
 			}
-			assert.Equal(t, tt.response, string(port.writeData))
+			assert.Equal(t, tt.response, strings.ToUpper(hex.EncodeToString(listener.writeData)))
 		})
 	}
 }
@@ -470,21 +459,9 @@ func TestWriteMultipleRegisters(t *testing.T) {
 	}{
 		{
 			name:              "Valid",
-			request:           ":0410000000020400040002E0\r\n",
-			response:          ":041000000002EA\r\n",
+			request:           "0002000000200110000000020400040002",
+			response:          "000200000005011000000002",
 			expectedRegisters: []uint16{0x0004, 0x0002},
-		},
-		{
-			name:    "InvalidRequest_MissingTrailers",
-			request: ":0410000000020400040002E0",
-		},
-		{
-			name:    "InvalidRequest_InvalidStart",
-			request: "0410000000020400040002E0\r\n",
-		},
-		{
-			name:    "InvalidRequest_NotOurAddress",
-			request: ":0510000000020400040002DF\r\n",
 		},
 	}
 
@@ -492,24 +469,24 @@ func TestWriteMultipleRegisters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			logger := zaptest.NewLogger(t)
-			port := &testSerialPort{
-				readData: []byte(tt.request),
+			listener := &testListener{
+				readData: [][]byte{[]byte(tt.request)},
 			}
 			handler := server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024)
-			s, err := newModbusServerWithHandler(logger, port, 0x04, handler)
+			s, err := newModbusServerWithHandler(logger, listener, handler)
 			assert.NoError(t, err)
 
 			s.Start()
 			assert.NoError(t, err)
 
-			waitForWrite(port, len(tt.response))
+			waitForWrite(listener, len(tt.response))
 
 			err = s.Close()
 			assert.NoError(t, err)
 			if tt.expectedRegisters != nil {
 				assert.Equal(t, tt.expectedRegisters, handler.(*server.DefaultHandler).HoldingRegisters[0:2])
 			}
-			assert.Equal(t, tt.response, string(port.writeData))
+			assert.Equal(t, tt.response, strings.ToUpper(hex.EncodeToString(listener.writeData)))
 		})
 	}
 }

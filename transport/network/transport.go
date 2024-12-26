@@ -1,4 +1,4 @@
-package tcp
+package network
 
 import (
 	"context"
@@ -47,7 +47,6 @@ func (m *modbusTCPSocketTransport) AcceptRequest(ctx context.Context) (transport
 			errChan <- err
 			return
 		}
-
 		dataChan <- data
 	}()
 

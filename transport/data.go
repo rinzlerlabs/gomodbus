@@ -119,7 +119,7 @@ func (pdu *ProtocolDataUnit) FunctionCode() data.FunctionCode {
 }
 
 func (pdu *ProtocolDataUnit) Bytes() []byte {
-	return append([]byte{byte(pdu.functionCode)}, pdu.op.Bytes()...)
+	return append([]byte{byte(pdu.functionCode)}, data.ModbusOperationToBytes(pdu.op)...)
 }
 
 func EncodeToString(data []byte) string {

@@ -1,4 +1,4 @@
-package tcp
+package network
 
 import (
 	"context"
@@ -6,8 +6,7 @@ import (
 	"time"
 
 	"github.com/rinzlerlabs/gomodbus/client"
-	"github.com/rinzlerlabs/gomodbus/client/network"
-	"github.com/rinzlerlabs/gomodbus/transport/network/tcp"
+	transport "github.com/rinzlerlabs/gomodbus/transport/network"
 	"go.uber.org/zap"
 )
 
@@ -21,10 +20,10 @@ func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, endpoin
 		logger.Error("Failed to connect to endpoint", zap.String("endpoint", endpoint), zap.Error(err))
 		panic(err)
 	}
-	return client.NewModbusClient(ctx, logger, tcp.NewModbusTransport(conn, logger), network.NewNetworkRequestCreator(tcp.NewModbusTransaction, tcp.NewModbusFrame), responseTimeout), nil
+	return client.NewModbusClient(ctx, logger, transport.NewModbusTransport(conn, logger), NewNetworkRequestCreator(transport.NewModbusTransaction, transport.NewModbusFrame), responseTimeout), nil
 }
 
-func newModbusClient(logger *zap.Logger, stream tcp.ReadWriteCloseRemoteAddresser, responseTimeout time.Duration) client.ModbusClient {
+func newModbusClient(logger *zap.Logger, stream transport.ReadWriteCloseRemoteAddresser, responseTimeout time.Duration) client.ModbusClient {
 	ctx := context.Background()
-	return client.NewModbusClient(ctx, logger, tcp.NewModbusTransport(stream, logger), network.NewNetworkRequestCreator(tcp.NewModbusTransaction, tcp.NewModbusFrame), responseTimeout)
+	return client.NewModbusClient(ctx, logger, transport.NewModbusTransport(stream, logger), NewNetworkRequestCreator(transport.NewModbusTransaction, transport.NewModbusFrame), responseTimeout)
 }

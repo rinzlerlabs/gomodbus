@@ -4,7 +4,7 @@ import (
 	"github.com/rinzlerlabs/gomodbus/common"
 )
 
-func ParseModbusResponseOperation(functionCode FunctionCode, bytes []byte, valueCount uint16) (ModbusOperation, error) {
+func ParseModbusResponseOperation(functionCode FunctionCode, bytes []byte, valueCount int) (ModbusOperation, error) {
 	var op ModbusOperation
 	var err error
 	switch functionCode {
@@ -46,7 +46,7 @@ func ParseModbusResponseOperation(functionCode FunctionCode, bytes []byte, value
 	return op, err
 }
 
-func newReadCoilsResponse(b []byte, requestCount uint16) (*ReadCoilsResponse, error) {
+func newReadCoilsResponse(b []byte, requestCount int) (*ReadCoilsResponse, error) {
 	if len(b) < 1 {
 		return nil, common.ErrInvalidPacket
 	}
@@ -59,11 +59,11 @@ func newReadCoilsResponse(b []byte, requestCount uint16) (*ReadCoilsResponse, er
 		values[i] = b[1+i/8]&(1<<uint(i%8)) != 0
 	}
 	return &ReadCoilsResponse{
-		Values: values[:requestCount],
+		values: values[:requestCount],
 	}, nil
 }
 
-func newReadDiscreteInputsResponse(b []byte, requestCount uint16) (*ReadDiscreteInputsResponse, error) {
+func newReadDiscreteInputsResponse(b []byte, requestCount int) (*ReadDiscreteInputsResponse, error) {
 	if len(b) < 1 {
 		return nil, common.ErrInvalidPacket
 	}
@@ -76,11 +76,11 @@ func newReadDiscreteInputsResponse(b []byte, requestCount uint16) (*ReadDiscrete
 		values[i] = b[1+i/8]&(1<<uint(i%8)) != 0
 	}
 	return &ReadDiscreteInputsResponse{
-		Values: values[:requestCount],
+		values: values[:requestCount],
 	}, nil
 }
 
-func newReadHoldingRegistersResponse(b []byte, requestCount uint16) (*ReadHoldingRegistersResponse, error) {
+func newReadHoldingRegistersResponse(b []byte, requestCount int) (*ReadHoldingRegistersResponse, error) {
 	if len(b) < 1 {
 		return nil, common.ErrInvalidPacket
 	}
@@ -93,11 +93,11 @@ func newReadHoldingRegistersResponse(b []byte, requestCount uint16) (*ReadHoldin
 		values[i] = uint16(b[1+2*i])<<8 | uint16(b[2+2*i])
 	}
 	return &ReadHoldingRegistersResponse{
-		Values: values[:requestCount],
+		values: values[:requestCount],
 	}, nil
 }
 
-func newReadInputRegistersResponse(b []byte, requestCount uint16) (*ReadInputRegistersResponse, error) {
+func newReadInputRegistersResponse(b []byte, requestCount int) (*ReadInputRegistersResponse, error) {
 	if len(b) < 1 {
 		return nil, common.ErrInvalidPacket
 	}
@@ -110,7 +110,7 @@ func newReadInputRegistersResponse(b []byte, requestCount uint16) (*ReadInputReg
 		values[i] = uint16(b[1+2*i])<<8 | uint16(b[2+2*i])
 	}
 	return &ReadInputRegistersResponse{
-		Values: values[:requestCount],
+		values: values[:requestCount],
 	}, nil
 }
 
@@ -119,8 +119,8 @@ func newWriteSingleCoilResponse(b []byte) (*WriteSingleCoilResponse, error) {
 		return nil, common.ErrInvalidPacket
 	}
 	return &WriteSingleCoilResponse{
-		Offset: uint16(b[0])<<8 | uint16(b[1]),
-		Value:  b[2] == 0xFF,
+		offset: uint16(b[0])<<8 | uint16(b[1]),
+		value:  b[2] == 0xFF,
 	}, nil
 }
 
@@ -129,8 +129,8 @@ func newWriteSingleRegisterResponse(b []byte) (*WriteSingleRegisterResponse, err
 		return nil, common.ErrInvalidPacket
 	}
 	return &WriteSingleRegisterResponse{
-		Offset: uint16(b[0])<<8 | uint16(b[1]),
-		Value:  uint16(b[2])<<8 | uint16(b[3]),
+		offset: uint16(b[0])<<8 | uint16(b[1]),
+		value:  uint16(b[2])<<8 | uint16(b[3]),
 	}, nil
 }
 
@@ -139,8 +139,8 @@ func newWriteMultipleCoilsResponse(b []byte) (*WriteMultipleCoilsResponse, error
 		return nil, common.ErrInvalidPacket
 	}
 	return &WriteMultipleCoilsResponse{
-		Offset: uint16(b[0])<<8 | uint16(b[1]),
-		Count:  uint16(b[2])<<8 | uint16(b[3]),
+		offset: uint16(b[0])<<8 | uint16(b[1]),
+		count:  uint16(b[2])<<8 | uint16(b[3]),
 	}, nil
 }
 
@@ -149,8 +149,8 @@ func newWriteMultipleRegistersResponse(b []byte) (*WriteMultipleRegistersRespons
 		return nil, common.ErrInvalidPacket
 	}
 	return &WriteMultipleRegistersResponse{
-		Offset: uint16(b[0])<<8 | uint16(b[1]),
-		Count:  uint16(b[2])<<8 | uint16(b[3]),
+		offset: uint16(b[0])<<8 | uint16(b[1]),
+		count:  uint16(b[2])<<8 | uint16(b[3]),
 	}, nil
 }
 

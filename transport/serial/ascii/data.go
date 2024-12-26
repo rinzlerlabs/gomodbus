@@ -93,7 +93,7 @@ func NewModbusFrame(header transport.Header, response *transport.ProtocolDataUni
 	}
 }
 
-func NewModbusASCIIResponseFrame(packet []byte, valueCount uint16) (*transport.ModbusFrame, error) {
+func NewModbusASCIIResponseFrame(packet []byte, valueCount int) (*transport.ModbusFrame, error) {
 	// parse the ascii to bytes
 	packet = packet[1 : len(packet)-2] // remove the colon and the trailing CR LF
 	packet, err := hex.DecodeString(string(packet))
@@ -149,9 +149,9 @@ func (m *modbusTransaction) Exchange(ctx context.Context) (*transport.ModbusFram
 		return nil, err
 	}
 
-	valueCount := uint16(0)
-	if countable, success := m.frame.PDU().Operation().(data.CountableRequest); success {
-		valueCount = countable.ValueCount()
+	valueCount := 0
+	if countable, success := m.frame.PDU().Operation().(data.CountableOperation); success {
+		valueCount = countable.Count()
 	}
 
 	return NewModbusASCIIResponseFrame(b, valueCount)

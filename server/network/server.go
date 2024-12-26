@@ -1,14 +1,15 @@
-package tcp
+package network
 
 import (
 	"context"
 	"errors"
 	"io"
 	"net"
+	"net/url"
 	"sync"
 
 	"github.com/rinzlerlabs/gomodbus/server"
-	"github.com/rinzlerlabs/gomodbus/transport/network/tcp"
+	"github.com/rinzlerlabs/gomodbus/transport/network"
 	"go.uber.org/zap"
 )
 
@@ -21,11 +22,32 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	listener, err := net.Listen("tcp", endpoint)
+	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
 	}
+	listener, err := net.Listen(u.Scheme, endpoint)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return &modbusServer{
+		logger:    logger,
+		handler:   handler,
+		cancelCtx: ctx,
+		cancel:    cancel,
+		listener:  listener,
+		stats:     server.NewServerStats(),
+	}, nil
+}
+
+func newModbusServerWithHandler(logger *zap.Logger, listener net.Listener, handler server.RequestHandler) (server.ModbusServer, error) {
+	if handler == nil {
+		return nil, errors.New("handler is required")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &modbusServer{
 		logger:    logger,
 		handler:   handler,
@@ -115,7 +137,7 @@ func (s *modbusServer) handleClient(conn net.Conn) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 	defer conn.Close()
-	t := tcp.NewModbusTransport(conn, s.logger)
+	t := network.NewModbusTransport(conn, s.logger)
 	defer t.Close()
 	for {
 		select {

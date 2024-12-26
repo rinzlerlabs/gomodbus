@@ -77,74 +77,59 @@ func (m *modbusClient) ReadCoils(address, offset, quantity uint16) ([]bool, erro
 	}
 
 	m.logger.Debug("Received modbus response", zap.Object("response", adu))
-	return adu.PDU().Operation().(*data.ReadCoilsResponse).Values, nil
+	return adu.PDU().Operation().(*data.ReadCoilsResponse).Values(), nil
 }
 
 func (m *modbusClient) ReadDiscreteInputs(address, offset, quantity uint16) ([]bool, error) {
-	req := &data.ReadDiscreteInputsRequest{
-		Offset: offset,
-		Count:  quantity,
-	}
+	req := data.NewReadDiscreteInputsRequest(offset, quantity)
 	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return nil, err
 	}
 	m.logger.Debug("Received modbus response", zap.Object("response", adu))
 
-	return adu.PDU().Operation().(*data.ReadDiscreteInputsResponse).Values, nil
+	return adu.PDU().Operation().(*data.ReadDiscreteInputsResponse).Values(), nil
 }
 
 func (m *modbusClient) ReadHoldingRegisters(address, offset, quantity uint16) ([]uint16, error) {
-	req := &data.ReadHoldingRegistersRequest{
-		Offset: offset,
-		Count:  quantity,
-	}
+	req := data.NewReadHoldingRegistersRequest(offset, quantity)
 	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return nil, err
 	}
 	m.logger.Debug("Received modbus response", zap.Object("response", adu))
-	return adu.PDU().Operation().(*data.ReadHoldingRegistersResponse).Values, nil
+	return adu.PDU().Operation().(*data.ReadHoldingRegistersResponse).Values(), nil
 }
 
 func (m *modbusClient) ReadInputRegisters(address, offset, quantity uint16) ([]uint16, error) {
-	req := &data.ReadInputRegistersRequest{
-		Offset: offset,
-		Count:  quantity,
-	}
+	req := data.NewReadInputRegistersRequest(offset, quantity)
 	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return nil, err
 	}
 	m.logger.Debug("Received modbus response", zap.Object("response", adu))
-	return adu.PDU().Operation().(*data.ReadInputRegistersResponse).Values, nil
+	return adu.PDU().Operation().(*data.ReadInputRegistersResponse).Values(), nil
 }
 
 func (m *modbusClient) WriteSingleCoil(address, offset uint16, value bool) error {
-	req := &data.WriteSingleCoilRequest{
-		Offset: offset,
-		Value:  value,
-	}
+	req := data.NewWriteSingleCoilRequest(offset, value)
 	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return err
 	}
 	m.logger.Debug("Received modbus response", zap.Object("response", adu))
 	resp := adu.PDU().Operation().(*data.WriteSingleCoilResponse)
-	if resp.Offset != offset {
+	if resp.Offset() != offset {
 		return common.ErrResponseOffsetMismatch
 	}
-	if resp.Value != value {
+	if resp.Value() != value {
 		return common.ErrResponseValueMismatch
 	}
 	return nil
 }
 
 func (m *modbusClient) WriteSingleRegister(address, offset, value uint16) error {
-	req := &data.WriteSingleRegisterRequest{
-		Offset: offset,
-		Value:  value,
-	}
+	req := data.NewWriteSingleRegisterRequest(offset, value)
 	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return err
@@ -153,10 +138,10 @@ func (m *modbusClient) WriteSingleRegister(address, offset, value uint16) error 
 	if resp, success := adu.PDU().Operation().(*data.WriteSingleRegisterResponse); success == false {
 		return common.ErrInvalidPacket
 	} else {
-		if resp.Offset != offset {
+		if resp.Offset() != offset {
 			return common.ErrResponseOffsetMismatch
 		}
-		if resp.Value != value {
+		if resp.Value() != value {
 			return common.ErrResponseValueMismatch
 		}
 		return nil
@@ -164,10 +149,7 @@ func (m *modbusClient) WriteSingleRegister(address, offset, value uint16) error 
 }
 
 func (m *modbusClient) WriteMultipleCoils(address, offset uint16, values []bool) error {
-	req := &data.WriteMultipleCoilsRequest{
-		Offset: offset,
-		Values: values,
-	}
+	req := data.NewWriteMultipleCoilsRequest(offset, values)
 	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return err
@@ -176,10 +158,10 @@ func (m *modbusClient) WriteMultipleCoils(address, offset uint16, values []bool)
 	if resp, success := adu.PDU().Operation().(*data.WriteMultipleCoilsResponse); success == false {
 		return common.ErrInvalidPacket
 	} else {
-		if resp.Offset != offset {
+		if resp.Offset() != offset {
 			return common.ErrResponseOffsetMismatch
 		}
-		if int(resp.Count) != len(values) {
+		if int(resp.Count()) != len(values) {
 			return common.ErrResponseValueMismatch
 		}
 		return nil
@@ -187,10 +169,7 @@ func (m *modbusClient) WriteMultipleCoils(address, offset uint16, values []bool)
 }
 
 func (m *modbusClient) WriteMultipleRegisters(address, offset uint16, values []uint16) error {
-	req := &data.WriteMultipleRegistersRequest{
-		Offset: offset,
-		Values: values,
-	}
+	req := data.NewWriteMultipleRegistersRequest(offset, values)
 	adu, err := m.sendRequestAndReadResponse(address, transport.NewProtocolDataUnit(req))
 	if err != nil {
 		return err
@@ -199,10 +178,10 @@ func (m *modbusClient) WriteMultipleRegisters(address, offset uint16, values []u
 	if resp, success := adu.PDU().Operation().(*data.WriteMultipleRegistersResponse); success == false {
 		return common.ErrInvalidPacket
 	} else {
-		if resp.Offset != offset {
+		if resp.Offset() != offset {
 			return common.ErrResponseOffsetMismatch
 		}
-		if int(resp.Count) != len(values) {
+		if int(resp.Count()) != len(values) {
 			return common.ErrResponseValueMismatch
 		}
 		return nil

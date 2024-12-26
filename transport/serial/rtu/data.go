@@ -43,11 +43,11 @@ func (a *modbusApplicationDataUnit) validateChecksum() error {
 func (a *modbusApplicationDataUnit) Checksum() transport.ErrorCheck {
 	var crc uint16 = 0xFFFF
 	// TODO: avoid the byte array allocation
-	data := make([]byte, 0)
-	data = append(data, a.header.Bytes()...)
-	data = append(data, byte(a.pdu.FunctionCode()))
-	data = append(data, a.pdu.Operation().Bytes()...)
-	for _, b := range data {
+	bytes := make([]byte, 0)
+	bytes = append(bytes, a.header.Bytes()...)
+	bytes = append(bytes, byte(a.pdu.FunctionCode()))
+	bytes = append(bytes, data.ModbusOperationToBytes(a.pdu.Operation())...)
+	for _, b := range bytes {
 		crc ^= uint16(b)
 		for i := 0; i < 8; i++ {
 			if (crc & 1) != 0 {
@@ -96,7 +96,7 @@ func NewModbusFrame(header transport.Header, response *transport.ProtocolDataUni
 	}
 }
 
-func NewModbusRTUResponseFrame(packet []byte, valueCount uint16) (*transport.ModbusFrame, error) {
+func NewModbusRTUResponseFrame(packet []byte, valueCount int) (*transport.ModbusFrame, error) {
 	functionCode := data.FunctionCode(packet[1])
 	op, err := data.ParseModbusResponseOperation(functionCode, packet[2:len(packet)-2], valueCount)
 	if err != nil {
@@ -146,9 +146,9 @@ func (m *modbusTransaction) Exchange(ctx context.Context) (*transport.ModbusFram
 		return nil, err
 	}
 
-	valueCount := uint16(0)
-	if countable, success := m.frame.PDU().Operation().(data.CountableRequest); success {
-		valueCount = countable.ValueCount()
+	valueCount := 0
+	if countable, success := m.frame.PDU().Operation().(data.CountableOperation); success {
+		valueCount = countable.Count()
 	}
 	return NewModbusRTUResponseFrame(b, valueCount)
 }

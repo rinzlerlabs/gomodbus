@@ -11,14 +11,18 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewModbusServer(logger *zap.Logger, port sp.Port, serverAddress uint16) (server.ModbusServer, error) {
+func NewModbusServer(logger *zap.Logger, settings *sp.Config, serverAddress uint16) (server.ModbusServer, error) {
 	handler := server.NewDefaultHandler(logger, server.DefaultCoilCount, server.DefaultDiscreteInputCount, server.DefaultHoldingRegisterCount, server.DefaultInputRegisterCount)
-	return NewModbusServerWithHandler(logger, port, serverAddress, handler)
+	return NewModbusServerWithHandler(logger, settings, serverAddress, handler)
 }
 
-func NewModbusServerWithHandler(logger *zap.Logger, port sp.Port, serverAddress uint16, handler server.RequestHandler) (server.ModbusServer, error) {
+func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverAddress uint16, handler server.RequestHandler) (server.ModbusServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
+	}
+	port, err := sp.Open(settings)
+	if err != nil {
+		return nil, err
 	}
 
 	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, ascii.NewModbusTransport(port, logger))

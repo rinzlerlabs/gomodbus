@@ -33,8 +33,8 @@ func newReadCoilsRequest(bytes []byte) (*ReadCoilsRequest, error) {
 		return nil, common.ErrInvalidPacket
 	}
 	return &ReadCoilsRequest{
-		Offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
-		Count:  uint16(bytes[2])<<8 | uint16(bytes[3]),
+		offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
+		count:  uint16(bytes[2])<<8 | uint16(bytes[3]),
 	}, nil
 }
 
@@ -43,8 +43,8 @@ func newReadDiscreteInputsRequest(bytes []byte) (*ReadDiscreteInputsRequest, err
 		return nil, common.ErrInvalidPacket
 	}
 	return &ReadDiscreteInputsRequest{
-		Offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
-		Count:  uint16(bytes[2])<<8 | uint16(bytes[3]),
+		offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
+		count:  uint16(bytes[2])<<8 | uint16(bytes[3]),
 	}, nil
 }
 
@@ -53,8 +53,8 @@ func newReadHoldingRegistersRequest(bytes []byte) (*ReadHoldingRegistersRequest,
 		return nil, common.ErrInvalidPacket
 	}
 	return &ReadHoldingRegistersRequest{
-		Offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
-		Count:  uint16(bytes[2])<<8 | uint16(bytes[3]),
+		offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
+		count:  uint16(bytes[2])<<8 | uint16(bytes[3]),
 	}, nil
 }
 
@@ -63,8 +63,8 @@ func newReadInputRegistersRequest(bytes []byte) (*ReadInputRegistersRequest, err
 		return nil, common.ErrInvalidPacket
 	}
 	return &ReadInputRegistersRequest{
-		Offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
-		Count:  uint16(bytes[2])<<8 | uint16(bytes[3]),
+		offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
+		count:  uint16(bytes[2])<<8 | uint16(bytes[3]),
 	}, nil
 }
 
@@ -73,8 +73,8 @@ func newWriteSingleCoilRequest(bytes []byte) (*WriteSingleCoilRequest, error) {
 		return nil, common.ErrInvalidPacket
 	}
 	return &WriteSingleCoilRequest{
-		Offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
-		Value:  bytes[2] == 0xFF && bytes[3] == 0x00,
+		offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
+		value:  bytes[2] == 0xFF && bytes[3] == 0x00,
 	}, nil
 }
 
@@ -83,8 +83,8 @@ func newWriteSingleRegisterRequest(bytes []byte) (*WriteSingleRegisterRequest, e
 		return nil, common.ErrInvalidPacket
 	}
 	return &WriteSingleRegisterRequest{
-		Offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
-		Value:  uint16(bytes[2])<<8 | uint16(bytes[3]),
+		offset: uint16(bytes[0])<<8 | uint16(bytes[1]),
+		value:  uint16(bytes[2])<<8 | uint16(bytes[3]),
 	}, nil
 }
 
@@ -93,21 +93,21 @@ func newWriteMultipleCoilsRequest(bytes []byte) (*WriteMultipleCoilsRequest, err
 		return nil, common.ErrInvalidPacket
 	}
 	offset := uint16(bytes[0])<<8 | uint16(bytes[1])
-	coilCount := uint16(bytes[2])<<8 | uint16(bytes[3])
-	byteCount := uint16(bytes[4])
-	if uint16(len(bytes)) != 2+2+byteCount+1 {
+	coilcount := uint16(bytes[2])<<8 | uint16(bytes[3])
+	bytecount := uint16(bytes[4])
+	if uint16(len(bytes)) != 2+2+bytecount+1 {
 		return nil, common.ErrInvalidPacket
 	}
-	if byteCount*8 < coilCount {
+	if bytecount*8 < coilcount {
 		return nil, common.ErrInvalidPacket
 	}
-	values := make([]bool, coilCount)
-	for i := uint16(0); i < coilCount; i++ {
+	values := make([]bool, coilcount)
+	for i := uint16(0); i < coilcount; i++ {
 		values[i] = bytes[5+i/8]&(1<<uint(i%8)) != 0
 	}
 	return &WriteMultipleCoilsRequest{
-		Offset: offset,
-		Values: values,
+		offset: offset,
+		values: values,
 	}, nil
 }
 
@@ -116,20 +116,20 @@ func newWriteMultipleRegistersRequest(bytes []byte) (*WriteMultipleRegistersRequ
 		return nil, common.ErrInvalidPacket
 	}
 	offset := uint16(bytes[0])<<8 | uint16(bytes[1])
-	registerCount := uint16(bytes[2])<<8 | uint16(bytes[3])
-	byteCount := uint16(bytes[4])
-	if uint16(len(bytes)) != 2+2+byteCount+1 {
+	registercount := uint16(bytes[2])<<8 | uint16(bytes[3])
+	bytecount := uint16(bytes[4])
+	if uint16(len(bytes)) != 2+2+bytecount+1 {
 		return nil, common.ErrInvalidPacket
 	}
-	if byteCount != registerCount*2 {
+	if bytecount != registercount*2 {
 		return nil, common.ErrInvalidPacket
 	}
-	values := make([]uint16, registerCount)
-	for i := uint16(0); i < registerCount; i++ {
+	values := make([]uint16, registercount)
+	for i := uint16(0); i < registercount; i++ {
 		values[i] = uint16(bytes[5+i*2])<<8 | uint16(bytes[6+i*2])
 	}
 	return &WriteMultipleRegistersRequest{
-		Offset: offset,
-		Values: values,
+		offset: offset,
+		values: values,
 	}, nil
 }
