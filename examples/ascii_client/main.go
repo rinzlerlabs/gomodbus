@@ -21,7 +21,7 @@ func main() {
 		StopBits: 1,
 	}
 
-	modbusClient, err := ascii.NewModbusClient(logger, *settings, 1*time.Second)
+	modbusClient, err := ascii.NewModbusClient(logger, settings, 1*time.Second)
 	if err != nil {
 		logger.Error("Failed to create modbus client", zap.Error(err))
 		return
