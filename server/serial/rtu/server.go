@@ -23,6 +23,7 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverI
 	}
 	port, err := sp.Open(settings)
 	if err != nil {
+		logger.Error("Failed to open serial port", zap.Error(err))
 		return nil, err
 	}
 	internalPort := newRTUSerialPort(port)

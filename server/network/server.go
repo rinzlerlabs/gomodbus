@@ -24,10 +24,12 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 	}
 	u, err := url.Parse(endpoint)
 	if err != nil {
+		logger.Error("Error parsing endpoint", zap.Error(err))
 		return nil, err
 	}
 	listener, err := net.Listen(u.Scheme, u.Host)
 	if err != nil {
+		logger.Error("Failed to listen", zap.Error(err))
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -88,21 +90,14 @@ func (s *modbusServer) Start() error {
 	return nil
 }
 
-func (s *modbusServer) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.logger.Info("Stopping Modbus TCP server")
-	s.isRunning = false
-	s.cancel()
-	s.wg.Wait()
-	return nil
-}
-
 func (s *modbusServer) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.logger.Info("Closing Modbus TCP server")
 	err := s.listener.Close()
+	if err != nil {
+		s.logger.Error("Error closing listener", zap.Error(err))
+	}
 	s.cancel()
 	s.logger.Info("Waiting for all clients to disconnect")
 	s.wg.Wait()
