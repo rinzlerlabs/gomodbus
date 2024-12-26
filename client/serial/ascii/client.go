@@ -12,12 +12,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewModbusClient(logger *zap.Logger, settings sp.Config, responseTimeout time.Duration) (client.ModbusClient, error) {
+func NewModbusClient(logger *zap.Logger, settings *sp.Config, responseTimeout time.Duration) (client.ModbusClient, error) {
 	return NewModbusClientWithContext(context.Background(), logger, settings, responseTimeout)
 }
 
-func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, settings sp.Config, responseTimeout time.Duration) (client.ModbusClient, error) {
-	port, err := sp.Open(&settings)
+func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, settings *sp.Config, responseTimeout time.Duration) (client.ModbusClient, error) {
+	port, err := sp.Open(settings)
 	if err != nil {
 		return nil, err
 	}
