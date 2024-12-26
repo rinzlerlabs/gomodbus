@@ -1,5 +1,7 @@
 # A golang implementation of Modbus
 
+**WARNING: The APIs are not yet stable, changing versions may result in broken build**
+
 A Modbus library that supports RTU, ASCII, and TCP servers and clients. Examples can be found in the [examples](examples) directory.
 
 _Note: RTU implementation does not follow strict timing requirements due to limitations in non-RTOS environments._
