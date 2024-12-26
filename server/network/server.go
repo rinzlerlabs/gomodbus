@@ -22,16 +22,6 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		logger.Error("Error parsing endpoint", zap.Error(err))
-		return nil, err
-	}
-	listener, err := net.Listen(u.Scheme, u.Host)
-	if err != nil {
-		logger.Error("Failed to listen", zap.Error(err))
-		return nil, err
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &modbusServer{
@@ -39,8 +29,8 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 		handler:   handler,
 		cancelCtx: ctx,
 		cancel:    cancel,
-		listener:  listener,
 		stats:     server.NewServerStats(),
+		endpoint:  endpoint,
 	}, nil
 }
 
@@ -66,6 +56,7 @@ type modbusServer struct {
 	cancel    context.CancelFunc
 	logger    *zap.Logger
 	isRunning bool
+	endpoint  string
 	listener  net.Listener
 	stats     *server.ServerStats
 	wg        sync.WaitGroup
@@ -82,6 +73,21 @@ func (s *modbusServer) Start() error {
 	if s.isRunning {
 		s.logger.Debug("Modbus TCP server already running")
 		return nil
+	}
+
+	if s.listener == nil {
+
+		u, err := url.Parse(s.endpoint)
+		if err != nil {
+			s.logger.Error("Error parsing endpoint", zap.Error(err))
+			return err
+		}
+		listener, err := net.Listen(u.Scheme, u.Host)
+		if err != nil {
+			s.logger.Error("Failed to listen", zap.Error(err))
+			return err
+		}
+		s.listener = listener
 	}
 
 	s.logger.Info("Starting Modbus TCP server")

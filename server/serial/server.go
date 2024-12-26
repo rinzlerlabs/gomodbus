@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 
+	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/server"
 	"github.com/rinzlerlabs/gomodbus/transport"
@@ -17,33 +18,35 @@ type ModbusSerialServer interface {
 	Handler() server.RequestHandler
 }
 
-func NewModbusSerialServerWithHandler(logger *zap.Logger, serverAddress uint16, handler server.RequestHandler, transport transport.Transport) (ModbusSerialServer, error) {
+func NewModbusSerialServerWithHandler(logger *zap.Logger, serverAddress uint16, handler server.RequestHandler, transportCreator func(io.ReadWriteCloser) transport.Transport) (ModbusSerialServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &modbusSerialServer{
-		logger:    logger,
-		handler:   handler,
-		cancelCtx: ctx,
-		cancel:    cancel,
-		address:   serverAddress,
-		transport: transport,
-		stats:     server.NewServerStats(),
+		logger:           logger,
+		handler:          handler,
+		cancelCtx:        ctx,
+		cancel:           cancel,
+		address:          serverAddress,
+		transportCreator: transportCreator,
+		stats:            server.NewServerStats(),
 	}, nil
 }
 
 type modbusSerialServer struct {
-	handler   server.RequestHandler
-	cancelCtx context.Context
-	cancel    context.CancelFunc
-	logger    *zap.Logger
-	mu        sync.Mutex
-	address   uint16
-	transport transport.Transport
-	isRunning bool
-	wg        sync.WaitGroup
-	stats     *server.ServerStats
+	handler          server.RequestHandler
+	cancelCtx        context.Context
+	cancel           context.CancelFunc
+	logger           *zap.Logger
+	mu               sync.Mutex
+	address          uint16
+	serialSettings   *sp.Config
+	transportCreator func(io.ReadWriteCloser) transport.Transport
+	transport        transport.Transport
+	isRunning        bool
+	wg               sync.WaitGroup
+	stats            *server.ServerStats
 }
 
 func (s *modbusSerialServer) IsRunning() bool {
@@ -56,6 +59,15 @@ func (s *modbusSerialServer) Start() error {
 	if s.isRunning {
 		s.logger.Debug("Modbus RTU server already running")
 		return nil
+	}
+
+	if s.transport == nil {
+		port, err := sp.Open(s.serialSettings)
+		if err != nil {
+			s.logger.Error("Failed to open serial port", zap.Error(err))
+			return err
+		}
+		s.transport = s.transportCreator(port)
 	}
 
 	if s.cancel == nil {

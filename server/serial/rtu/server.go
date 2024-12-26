@@ -8,6 +8,7 @@ import (
 	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/server"
 	"github.com/rinzlerlabs/gomodbus/server/serial"
+	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"go.uber.org/zap"
 )
@@ -21,21 +22,23 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverI
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
-	port, err := sp.Open(settings)
-	if err != nil {
-		logger.Error("Failed to open serial port", zap.Error(err))
-		return nil, err
+
+	transportCreator := func(s io.ReadWriteCloser) transport.Transport {
+		internalPort := newRTUSerialPort(s)
+		return rtu.NewModbusServerTransport(internalPort, logger, serverId)
 	}
-	internalPort := newRTUSerialPort(port)
-	return serial.NewModbusSerialServerWithHandler(logger, serverId, handler, rtu.NewModbusServerTransport(internalPort, logger, serverId))
+	return serial.NewModbusSerialServerWithHandler(logger, serverId, handler, transportCreator)
 }
 
 func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {
-	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, rtu.NewModbusServerTransport(stream, logger, serverAddress))
+	transportCreator := func(s io.ReadWriteCloser) transport.Transport {
+		return rtu.NewModbusServerTransport(s, logger, serverAddress)
+	}
+	return serial.NewModbusSerialServerWithHandler(logger, serverAddress, handler, transportCreator)
 
 }
 
-func newRTUSerialPort(port sp.Port) *rtuSerialPort {
+func newRTUSerialPort(port io.ReadWriteCloser) *rtuSerialPort {
 	return &rtuSerialPort{
 		port:         port,
 		lastActivity: time.Now(),
@@ -44,7 +47,7 @@ func newRTUSerialPort(port sp.Port) *rtuSerialPort {
 
 type rtuSerialPort struct {
 	io.ReadWriteCloser
-	port         sp.Port
+	port         io.ReadWriteCloser
 	lastActivity time.Time
 }
 
