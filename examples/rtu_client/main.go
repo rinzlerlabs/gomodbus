@@ -13,19 +13,19 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	port, err := serial.Open(&serial.Config{
+	settings := &serial.Config{
 		Address:  "/dev/ttyUSB0",
 		BaudRate: 19200,
 		DataBits: 8,
 		Parity:   "N",
 		StopBits: 1,
-	})
-	if err != nil {
-		logger.Error("Failed to open serial port", zap.Error(err))
-		return
 	}
 
-	modbusClient := rtu.NewModbusClient(logger, port, 1*time.Second)
+	modbusClient, err := rtu.NewModbusClient(logger, settings, 1*time.Second)
+	if err != nil {
+		logger.Error("Failed to create modbus client", zap.Error(err))
+		return
+	}
 	defer modbusClient.Close()
 
 	coils, err := modbusClient.ReadCoils(91, 0, 16)

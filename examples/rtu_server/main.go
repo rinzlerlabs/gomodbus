@@ -16,7 +16,7 @@ func main() {
 		panic(err)
 	}
 	settings := &sp.Config{
-		Address:  "rtu:///dev/ttyUSB0",
+		Address:  "/dev/ttyUSB0",
 		BaudRate: 19200,
 		DataBits: 8,
 		Parity:   "N",
