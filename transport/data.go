@@ -1,7 +1,6 @@
 package transport
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -10,25 +9,6 @@ import (
 )
 
 type ErrorCheck []byte
-
-type ModbusTransaction interface {
-	Frame() *ModbusFrame
-	Write(*ProtocolDataUnit) error
-	Exchange(context.Context) (*ModbusFrame, error)
-}
-
-type ModbusFrame struct {
-	zapcore.ObjectMarshaler
-	ApplicationDataUnit
-	ResponseCreator func(header Header, response *ProtocolDataUnit) *ModbusFrame
-}
-
-func (frame ModbusFrame) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
-	encoder.AddObject("Header", frame.Header())
-	encoder.AddObject("PDU", frame.PDU())
-	encoder.AddString("Checksum", EncodeToString(frame.Checksum()))
-	return nil
-}
 
 type Header interface {
 	zapcore.ObjectMarshaler
@@ -40,7 +20,7 @@ type SerialHeader interface {
 	Address() uint16
 }
 
-type TCPHeader interface {
+type NetworkHeader interface {
 	Header
 	TransactionID() []byte
 	ProtocolID() []byte
@@ -57,7 +37,7 @@ type ApplicationDataUnit interface {
 
 func NewProtocolDataUnit(op data.ModbusOperation) *ProtocolDataUnit {
 	var f data.FunctionCode
-	switch op.(type) {
+	switch op := op.(type) {
 	case *data.ReadCoilsRequest:
 		f = data.ReadCoils
 	case *data.ReadCoilsResponse:
@@ -91,7 +71,7 @@ func NewProtocolDataUnit(op data.ModbusOperation) *ProtocolDataUnit {
 	case *data.WriteMultipleRegistersResponse:
 		f = data.WriteMultipleRegisters
 	case *data.ModbusOperationException:
-		f = op.(*data.ModbusOperationException).FunctionCode
+		f = op.FunctionCode
 	}
 	return &ProtocolDataUnit{
 		functionCode: f,

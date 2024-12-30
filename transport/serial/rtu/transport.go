@@ -21,7 +21,6 @@ type modbusRTUTransport struct {
 	stream     io.ReadWriteCloser
 	reader     *bufio.Reader
 	serverAddr uint16
-	storedRead []byte
 }
 
 func NewModbusServerTransport(stream io.ReadWriteCloser, logger *zap.Logger, serverAddress uint16) transport.Transport {
@@ -41,7 +40,7 @@ func NewModbusClientTransport(stream io.ReadWriteCloser, logger *zap.Logger) tra
 	}
 }
 
-func (t *modbusRTUTransport) readRequestFrame(ctx context.Context) ([]byte, error) {
+func (t *modbusRTUTransport) ReadRequest(ctx context.Context) (transport.ApplicationDataUnit, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 start:
@@ -91,7 +90,6 @@ start:
 			read += n
 		}
 		t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
-		return bytes[:8], nil
 	case data.WriteMultipleCoils, data.WriteMultipleRegisters:
 		// These functions have a variable length, so we need to read the length byte
 		for read < 7 {
@@ -151,15 +149,16 @@ start:
 			read += n
 		}
 		t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
-		return bytes[:bytesNeeded], nil
 	default:
 		// This likely means we have a timing error, so we discard the packet
 		t.logger.Debug("Unsupported function code", zap.Uint8("functionCode", uint8(functionCode)))
 		goto start
 	}
+	t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
+	return ParseModbusRequestFrame(bytes[:read])
 }
 
-func (t *modbusRTUTransport) readResponseFrame(ctx context.Context) ([]byte, error) {
+func (t *modbusRTUTransport) ReadResponse(ctx context.Context, request transport.ApplicationDataUnit) (transport.ApplicationDataUnit, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	read := 0
@@ -236,7 +235,6 @@ func (t *modbusRTUTransport) readResponseFrame(ctx context.Context) ([]byte, err
 			copy(bytes[read:read+n], d[:n])
 			read += n
 		}
-		return bytes[:8], nil
 	case data.ReadCoilsError, data.ReadDiscreteInputsError, data.ReadHoldingRegistersError, data.ReadInputRegistersError, data.WriteSingleCoilError, data.WriteSingleRegisterError, data.WriteMultipleCoilsError, data.WriteMultipleRegistersError:
 		// These functions are exactly 5 bytes long
 		for read < 5 {
@@ -253,28 +251,18 @@ func (t *modbusRTUTransport) readResponseFrame(ctx context.Context) ([]byte, err
 			copy(bytes[read:read+n], d[:n])
 			read += n
 		}
-		return bytes[:5], nil
 	default:
 		return nil, common.ErrUnsupportedFunctionCode
 	}
 	t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
-	return bytes[:read], nil
+
+	if op, ok := request.PDU().Operation().(data.CountableOperation); ok {
+		return ParseModbusResponseFrame(bytes[:read], op.Count())
+	}
+	return ParseModbusResponseFrame(bytes[:read], 0)
 }
 
-func (t *modbusRTUTransport) AcceptRequest(ctx context.Context) (transport.ModbusTransaction, error) {
-	data, err := t.readRequestFrame(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	frame, err := NewModbusRTURequestFrame(data)
-	if err != nil {
-		return nil, err
-	}
-	return NewModbusTransaction(frame, t), nil
-}
-
-func (t *modbusRTUTransport) WriteFrame(data *transport.ModbusFrame) error {
+func (t *modbusRTUTransport) WriteFrame(data transport.ApplicationDataUnit) error {
 	_, err := t.Write(data.Bytes())
 	return err
 }

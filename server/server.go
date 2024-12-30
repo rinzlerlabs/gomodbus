@@ -34,11 +34,11 @@ type ServerStats struct {
 	mu                                  sync.Mutex
 }
 
-func (s *ServerStats) AddRequest(txn transport.ModbusTransaction) {
+func (s *ServerStats) AddRequest(txn transport.ApplicationDataUnit) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.TotalRequests++
-	switch txn.Frame().PDU().FunctionCode() {
+	switch txn.PDU().FunctionCode() {
 	case data.ReadCoils:
 		s.TotalReadCoilsRequests++
 	case data.ReadDiscreteInputs:

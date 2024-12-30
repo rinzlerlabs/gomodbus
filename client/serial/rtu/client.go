@@ -2,13 +2,13 @@ package rtu
 
 import (
 	"context"
-	"io"
 	"net/url"
-	"time"
 
 	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/client"
 	"github.com/rinzlerlabs/gomodbus/client/serial"
+	"github.com/rinzlerlabs/gomodbus/transport"
+	st "github.com/rinzlerlabs/gomodbus/transport/serial"
 	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"go.uber.org/zap"
 )
@@ -23,6 +23,9 @@ func NewModbusClientFromUriWithContext(ctx context.Context, logger *zap.Logger, 
 		return nil, err
 	}
 	settings, err := serial.NewClientSettingsFromURI(u)
+	if err != nil {
+		return nil, err
+	}
 	return NewModbusClientWithContext(ctx, logger, settings)
 }
 
@@ -36,14 +39,10 @@ func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, setting
 	if err != nil {
 		return nil, err
 	}
-	transport := rtu.NewModbusClientTransport(port, logger)
-	requestCreator := serial.NewSerialRequestCreator(rtu.NewModbusTransaction, rtu.NewModbusFrame)
-	return client.NewModbusClient(ctx, logger, transport, requestCreator, settings.ResponseTimeout()), nil
-}
-
-func newModbusClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) client.ModbusClient {
-	ctx := context.Background()
-	transport := rtu.NewModbusClientTransport(stream, logger)
-	requestCreator := serial.NewSerialRequestCreator(rtu.NewModbusTransaction, rtu.NewModbusFrame)
-	return client.NewModbusClient(ctx, logger, transport, requestCreator, responseTimeout)
+	t := rtu.NewModbusClientTransport(port, logger)
+	newHeader := func(address uint16) transport.Header {
+		return st.NewHeader(address)
+	}
+	requestCreator := serial.NewSerialRequestCreator(newHeader, rtu.NewModbusRequest)
+	return client.NewModbusClient(ctx, logger, t, requestCreator, settings.ResponseTimeout()), nil
 }

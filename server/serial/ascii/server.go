@@ -8,6 +8,7 @@ import (
 	"github.com/rinzlerlabs/gomodbus/server"
 	"github.com/rinzlerlabs/gomodbus/server/serial"
 	"github.com/rinzlerlabs/gomodbus/transport"
+	st "github.com/rinzlerlabs/gomodbus/transport/serial"
 	"github.com/rinzlerlabs/gomodbus/transport/serial/ascii"
 	"go.uber.org/zap"
 )
@@ -28,10 +29,10 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverA
 			logger.Error("Failed to open serial port", zap.Error(err))
 			return nil, err
 		}
-		return ascii.NewModbusTransport(port, logger), nil
+		return ascii.NewModbusServerTransport(port, logger), nil
 	}
 
-	return serial.NewModbusSerialServerWithCreator(logger, settings, serverAddress, handler, transportCreator)
+	return serial.NewModbusSerialServerWithCreator(logger, settings, serverAddress, handler, st.NewFrameBuilder(ascii.NewModbusResponse), transportCreator)
 }
 
 // newModbusServerWithHandler creates a new Modbus ASCII server with a io.ReadWriter stream instead of an explicit port, for testing purposes, and a RequestHandler.
@@ -40,5 +41,5 @@ func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, s
 		return nil, errors.New("handler is required")
 	}
 
-	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, ascii.NewModbusTransport(stream, logger))
+	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, st.NewFrameBuilder(ascii.NewModbusResponse), ascii.NewModbusServerTransport(stream, logger))
 }

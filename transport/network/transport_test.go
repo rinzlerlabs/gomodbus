@@ -56,17 +56,16 @@ func TestAcceptRequest(t *testing.T) {
 	port := &testConnection{
 		readData: []byte{0x00, 0x02, 0x00, 0x00, 0x00, 0x05, 0x01, 0x01, 0x00, 0x0A, 0x00, 0x0D},
 	}
-	tp := NewModbusTransport(port, logger)
-	txn, err := tp.AcceptRequest(ctx)
+	tp := NewModbusServerTransport(port, logger)
+	txn, err := tp.ReadRequest(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, txn)
-	adu := txn.Frame()
-	assert.Equal(t, []byte{0x00, 0x02}, adu.Header().(transport.TCPHeader).TransactionID())
-	assert.Equal(t, []byte{0x00, 0x00}, adu.Header().(transport.TCPHeader).ProtocolID())
-	assert.Equal(t, byte(0x01), adu.Header().(transport.TCPHeader).UnitID())
-	assert.Equal(t, data.FunctionCode(0x01), adu.PDU().FunctionCode())
-	assert.Equal(t, []byte{0x00, 0x0A, 0x00, 0x0D}, data.ModbusOperationToBytes(adu.PDU().Operation()))
-	assert.Equal(t, []byte{0x00}, []byte(adu.Checksum()))
+	assert.Equal(t, []byte{0x00, 0x02}, txn.Header().(transport.NetworkHeader).TransactionID())
+	assert.Equal(t, []byte{0x00, 0x00}, txn.Header().(transport.NetworkHeader).ProtocolID())
+	assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
+	assert.Equal(t, data.FunctionCode(0x01), txn.PDU().FunctionCode())
+	assert.Equal(t, []byte{0x00, 0x0A, 0x00, 0x0D}, data.ModbusOperationToBytes(txn.PDU().Operation()))
+	assert.Equal(t, []byte{0x00}, []byte(txn.Checksum()))
 }
 
 func TestReadCoilsRequest(t *testing.T) {
@@ -91,8 +90,8 @@ func TestReadCoilsRequest(t *testing.T) {
 			port := &testConnection{
 				readData: d,
 			}
-			tp := NewModbusTransport(port, logger)
-			txn, err := tp.AcceptRequest(ctx)
+			tp := NewModbusServerTransport(port, logger)
+			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, txn)
@@ -100,13 +99,13 @@ func TestReadCoilsRequest(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
-			assert.Equal(t, []byte{0x00, 0x02}, txn.Frame().Header().(transport.TCPHeader).TransactionID())
-			assert.Equal(t, []byte{0x00, 0x00}, txn.Frame().Header().(transport.TCPHeader).ProtocolID())
-			assert.Equal(t, byte(0x01), txn.Frame().Header().(transport.TCPHeader).UnitID())
-			assert.Equal(t, data.ReadCoils, txn.Frame().ApplicationDataUnit.PDU().FunctionCode())
-			assert.Equal(t, uint16(0x0A), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.ReadCoilsRequest).Offset())
-			assert.Equal(t, int(0x0D), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.ReadCoilsRequest).Count())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Frame().ApplicationDataUnit.Checksum())
+			assert.Equal(t, []byte{0x00, 0x02}, txn.Header().(transport.NetworkHeader).TransactionID())
+			assert.Equal(t, []byte{0x00, 0x00}, txn.Header().(transport.NetworkHeader).ProtocolID())
+			assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
+			assert.Equal(t, data.ReadCoils, txn.PDU().FunctionCode())
+			assert.Equal(t, uint16(0x0A), txn.PDU().Operation().(*data.ReadCoilsRequest).Offset())
+			assert.Equal(t, int(0x0D), txn.PDU().Operation().(*data.ReadCoilsRequest).Count())
+			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
 		})
 	}
 }
@@ -132,8 +131,8 @@ func TestReadDiscreteInputsRequest(t *testing.T) {
 			port := &testConnection{
 				readData: d,
 			}
-			tp := NewModbusTransport(port, logger)
-			txn, err := tp.AcceptRequest(ctx)
+			tp := NewModbusServerTransport(port, logger)
+			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, txn)
@@ -141,13 +140,13 @@ func TestReadDiscreteInputsRequest(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
-			assert.Equal(t, []byte{0x00, 0x02}, txn.Frame().Header().(transport.TCPHeader).TransactionID())
-			assert.Equal(t, []byte{0x00, 0x00}, txn.Frame().Header().(transport.TCPHeader).ProtocolID())
-			assert.Equal(t, byte(0x01), txn.Frame().Header().(transport.TCPHeader).UnitID())
-			assert.Equal(t, data.ReadDiscreteInputs, txn.Frame().ApplicationDataUnit.PDU().FunctionCode())
-			assert.Equal(t, uint16(0x0A), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.ReadDiscreteInputsRequest).Offset())
-			assert.Equal(t, int(0x0D), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.ReadDiscreteInputsRequest).Count())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Frame().ApplicationDataUnit.Checksum())
+			assert.Equal(t, []byte{0x00, 0x02}, txn.Header().(transport.NetworkHeader).TransactionID())
+			assert.Equal(t, []byte{0x00, 0x00}, txn.Header().(transport.NetworkHeader).ProtocolID())
+			assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
+			assert.Equal(t, data.ReadDiscreteInputs, txn.PDU().FunctionCode())
+			assert.Equal(t, uint16(0x0A), txn.PDU().Operation().(*data.ReadDiscreteInputsRequest).Offset())
+			assert.Equal(t, int(0x0D), txn.PDU().Operation().(*data.ReadDiscreteInputsRequest).Count())
+			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
 		})
 	}
 }
@@ -173,8 +172,8 @@ func TestReadHoldingRegistersRequest(t *testing.T) {
 			port := &testConnection{
 				readData: d,
 			}
-			tp := NewModbusTransport(port, logger)
-			txn, err := tp.AcceptRequest(ctx)
+			tp := NewModbusServerTransport(port, logger)
+			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, txn)
@@ -182,13 +181,13 @@ func TestReadHoldingRegistersRequest(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
-			assert.Equal(t, []byte{0x00, 0x02}, txn.Frame().Header().(transport.TCPHeader).TransactionID())
-			assert.Equal(t, []byte{0x00, 0x00}, txn.Frame().Header().(transport.TCPHeader).ProtocolID())
-			assert.Equal(t, byte(0x01), txn.Frame().Header().(transport.TCPHeader).UnitID())
-			assert.Equal(t, data.ReadHoldingRegisters, txn.Frame().ApplicationDataUnit.PDU().FunctionCode())
-			assert.Equal(t, uint16(0x00), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.ReadHoldingRegistersRequest).Offset())
-			assert.Equal(t, int(0x02), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.ReadHoldingRegistersRequest).Count())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Frame().ApplicationDataUnit.Checksum())
+			assert.Equal(t, []byte{0x00, 0x02}, txn.Header().(transport.NetworkHeader).TransactionID())
+			assert.Equal(t, []byte{0x00, 0x00}, txn.Header().(transport.NetworkHeader).ProtocolID())
+			assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
+			assert.Equal(t, data.ReadHoldingRegisters, txn.PDU().FunctionCode())
+			assert.Equal(t, uint16(0x00), txn.PDU().Operation().(*data.ReadHoldingRegistersRequest).Offset())
+			assert.Equal(t, int(0x02), txn.PDU().Operation().(*data.ReadHoldingRegistersRequest).Count())
+			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
 		})
 	}
 }
@@ -214,8 +213,8 @@ func TestReadInputRegistersRequest(t *testing.T) {
 			port := &testConnection{
 				readData: d,
 			}
-			tp := NewModbusTransport(port, logger)
-			txn, err := tp.AcceptRequest(ctx)
+			tp := NewModbusServerTransport(port, logger)
+			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, txn)
@@ -223,13 +222,13 @@ func TestReadInputRegistersRequest(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
-			assert.Equal(t, []byte{0x00, 0x02}, txn.Frame().Header().(transport.TCPHeader).TransactionID())
-			assert.Equal(t, []byte{0x00, 0x00}, txn.Frame().Header().(transport.TCPHeader).ProtocolID())
-			assert.Equal(t, byte(0x01), txn.Frame().Header().(transport.TCPHeader).UnitID())
-			assert.Equal(t, data.ReadInputRegisters, txn.Frame().ApplicationDataUnit.PDU().FunctionCode())
-			assert.Equal(t, uint16(0x00), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.ReadInputRegistersRequest).Offset())
-			assert.Equal(t, int(0x02), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.ReadInputRegistersRequest).Count())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Frame().ApplicationDataUnit.Checksum())
+			assert.Equal(t, []byte{0x00, 0x02}, txn.Header().(transport.NetworkHeader).TransactionID())
+			assert.Equal(t, []byte{0x00, 0x00}, txn.Header().(transport.NetworkHeader).ProtocolID())
+			assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
+			assert.Equal(t, data.ReadInputRegisters, txn.PDU().FunctionCode())
+			assert.Equal(t, uint16(0x00), txn.PDU().Operation().(*data.ReadInputRegistersRequest).Offset())
+			assert.Equal(t, int(0x02), txn.PDU().Operation().(*data.ReadInputRegistersRequest).Count())
+			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
 		})
 	}
 }
@@ -255,8 +254,8 @@ func TestWriteSingleCoilRequest(t *testing.T) {
 			port := &testConnection{
 				readData: d,
 			}
-			tp := NewModbusTransport(port, logger)
-			txn, err := tp.AcceptRequest(ctx)
+			tp := NewModbusServerTransport(port, logger)
+			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, txn)
@@ -264,13 +263,13 @@ func TestWriteSingleCoilRequest(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
-			assert.Equal(t, []byte{0x00, 0x02}, txn.Frame().Header().(transport.TCPHeader).TransactionID())
-			assert.Equal(t, []byte{0x00, 0x00}, txn.Frame().Header().(transport.TCPHeader).ProtocolID())
-			assert.Equal(t, byte(0x01), txn.Frame().Header().(transport.TCPHeader).UnitID())
-			assert.Equal(t, data.WriteSingleCoil, txn.Frame().ApplicationDataUnit.PDU().FunctionCode())
-			assert.Equal(t, uint16(0x0A), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.WriteSingleCoilRequest).Offset())
-			assert.Equal(t, true, txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.WriteSingleCoilRequest).Value())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Frame().ApplicationDataUnit.Checksum())
+			assert.Equal(t, []byte{0x00, 0x02}, txn.Header().(transport.NetworkHeader).TransactionID())
+			assert.Equal(t, []byte{0x00, 0x00}, txn.Header().(transport.NetworkHeader).ProtocolID())
+			assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
+			assert.Equal(t, data.WriteSingleCoil, txn.PDU().FunctionCode())
+			assert.Equal(t, uint16(0x0A), txn.PDU().Operation().(*data.WriteSingleCoilRequest).Offset())
+			assert.Equal(t, true, txn.PDU().Operation().(*data.WriteSingleCoilRequest).Value())
+			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
 		})
 	}
 }
@@ -296,8 +295,8 @@ func TestWriteSingleRegisterRequest(t *testing.T) {
 			port := &testConnection{
 				readData: d,
 			}
-			tp := NewModbusTransport(port, logger)
-			txn, err := tp.AcceptRequest(ctx)
+			tp := NewModbusServerTransport(port, logger)
+			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, txn)
@@ -305,13 +304,13 @@ func TestWriteSingleRegisterRequest(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
-			assert.Equal(t, []byte{0x00, 0x02}, txn.Frame().Header().(transport.TCPHeader).TransactionID())
-			assert.Equal(t, []byte{0x00, 0x00}, txn.Frame().Header().(transport.TCPHeader).ProtocolID())
-			assert.Equal(t, byte(0x01), txn.Frame().Header().(transport.TCPHeader).UnitID())
-			assert.Equal(t, data.WriteSingleRegister, txn.Frame().ApplicationDataUnit.PDU().FunctionCode())
-			assert.Equal(t, uint16(0x10), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.WriteSingleRegisterRequest).Offset())
-			assert.Equal(t, uint16(0x03), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.WriteSingleRegisterRequest).Value())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Frame().ApplicationDataUnit.Checksum())
+			assert.Equal(t, []byte{0x00, 0x02}, txn.Header().(transport.NetworkHeader).TransactionID())
+			assert.Equal(t, []byte{0x00, 0x00}, txn.Header().(transport.NetworkHeader).ProtocolID())
+			assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
+			assert.Equal(t, data.WriteSingleRegister, txn.PDU().FunctionCode())
+			assert.Equal(t, uint16(0x10), txn.PDU().Operation().(*data.WriteSingleRegisterRequest).Offset())
+			assert.Equal(t, uint16(0x03), txn.PDU().Operation().(*data.WriteSingleRegisterRequest).Value())
+			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
 		})
 	}
 }
@@ -337,8 +336,8 @@ func TestWriteMultipleCoilsRequest(t *testing.T) {
 			port := &testConnection{
 				readData: d,
 			}
-			tp := NewModbusTransport(port, logger)
-			txn, err := tp.AcceptRequest(ctx)
+			tp := NewModbusServerTransport(port, logger)
+			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, txn)
@@ -346,13 +345,13 @@ func TestWriteMultipleCoilsRequest(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
-			assert.Equal(t, []byte{0x00, 0x02}, txn.Frame().Header().(transport.TCPHeader).TransactionID())
-			assert.Equal(t, []byte{0x00, 0x00}, txn.Frame().Header().(transport.TCPHeader).ProtocolID())
-			assert.Equal(t, byte(0x01), txn.Frame().Header().(transport.TCPHeader).UnitID())
-			assert.Equal(t, data.WriteMultipleCoils, txn.Frame().ApplicationDataUnit.PDU().FunctionCode())
-			assert.Equal(t, uint16(0x00), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.WriteMultipleCoilsRequest).Offset())
-			assert.Equal(t, []bool{true, false, false, false, false, false, false, false, true, true, false, false, false, false, false, true, true, true, true, false, false, false, false, false}, txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.WriteMultipleCoilsRequest).Values())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Frame().ApplicationDataUnit.Checksum())
+			assert.Equal(t, []byte{0x00, 0x02}, txn.Header().(transport.NetworkHeader).TransactionID())
+			assert.Equal(t, []byte{0x00, 0x00}, txn.Header().(transport.NetworkHeader).ProtocolID())
+			assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
+			assert.Equal(t, data.WriteMultipleCoils, txn.PDU().FunctionCode())
+			assert.Equal(t, uint16(0x00), txn.PDU().Operation().(*data.WriteMultipleCoilsRequest).Offset())
+			assert.Equal(t, []bool{true, false, false, false, false, false, false, false, true, true, false, false, false, false, false, true, true, true, true, false, false, false, false, false}, txn.PDU().Operation().(*data.WriteMultipleCoilsRequest).Values())
+			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
 		})
 	}
 }
@@ -378,8 +377,8 @@ func TestWriteMultipleRegistersRequest(t *testing.T) {
 			port := &testConnection{
 				readData: d,
 			}
-			tp := NewModbusTransport(port, logger)
-			txn, err := tp.AcceptRequest(ctx)
+			tp := NewModbusServerTransport(port, logger)
+			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
 				assert.Nil(t, txn)
@@ -387,13 +386,13 @@ func TestWriteMultipleRegistersRequest(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.NotNil(t, txn)
-			assert.Equal(t, []byte{0x00, 0x02}, txn.Frame().Header().(transport.TCPHeader).TransactionID())
-			assert.Equal(t, []byte{0x00, 0x00}, txn.Frame().Header().(transport.TCPHeader).ProtocolID())
-			assert.Equal(t, byte(0x01), txn.Frame().Header().(transport.TCPHeader).UnitID())
-			assert.Equal(t, data.WriteMultipleRegisters, txn.Frame().ApplicationDataUnit.PDU().FunctionCode())
-			assert.Equal(t, uint16(0x00), txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.WriteMultipleRegistersRequest).Offset())
-			assert.Equal(t, []uint16{0x0004, 0x0002}, txn.Frame().ApplicationDataUnit.PDU().Operation().(*data.WriteMultipleRegistersRequest).Values())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Frame().ApplicationDataUnit.Checksum())
+			assert.Equal(t, []byte{0x00, 0x02}, txn.Header().(transport.NetworkHeader).TransactionID())
+			assert.Equal(t, []byte{0x00, 0x00}, txn.Header().(transport.NetworkHeader).ProtocolID())
+			assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
+			assert.Equal(t, data.WriteMultipleRegisters, txn.PDU().FunctionCode())
+			assert.Equal(t, uint16(0x00), txn.PDU().Operation().(*data.WriteMultipleRegistersRequest).Offset())
+			assert.Equal(t, []uint16{0x0004, 0x0002}, txn.PDU().Operation().(*data.WriteMultipleRegistersRequest).Values())
+			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
 		})
 	}
 }

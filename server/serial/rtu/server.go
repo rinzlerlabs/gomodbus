@@ -9,6 +9,7 @@ import (
 	"github.com/rinzlerlabs/gomodbus/server"
 	"github.com/rinzlerlabs/gomodbus/server/serial"
 	"github.com/rinzlerlabs/gomodbus/transport"
+	st "github.com/rinzlerlabs/gomodbus/transport/serial"
 	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"go.uber.org/zap"
 )
@@ -32,11 +33,11 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverI
 		internalPort := newRTUSerialPort(port)
 		return rtu.NewModbusServerTransport(internalPort, logger, serverId), nil
 	}
-	return serial.NewModbusSerialServerWithCreator(logger, settings, serverId, handler, transportCreator)
+	return serial.NewModbusSerialServerWithCreator(logger, settings, serverId, handler, st.NewFrameBuilder(rtu.NewModbusResponse), transportCreator)
 }
 
 func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {
-	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, rtu.NewModbusServerTransport(stream, logger, serverAddress))
+	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, st.NewFrameBuilder(rtu.NewModbusResponse), rtu.NewModbusServerTransport(stream, logger, serverAddress))
 }
 
 func newRTUSerialPort(port io.ReadWriteCloser) *rtuSerialPort {

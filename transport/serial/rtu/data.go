@@ -1,15 +1,19 @@
 package rtu
 
 import (
-	"context"
-
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/rinzlerlabs/gomodbus/transport/serial"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+func NewModbusApplicationDataUnit(header transport.SerialHeader, pdu *transport.ProtocolDataUnit) *modbusApplicationDataUnit {
+	return &modbusApplicationDataUnit{
+		header: header,
+		pdu:    pdu,
+	}
+}
 
 type modbusApplicationDataUnit struct {
 	header   transport.SerialHeader
@@ -69,8 +73,8 @@ func newModbusRTURequestProtocolDataUnit(functionCode data.FunctionCode, bytes [
 	return transport.NewProtocolDataUnit(op), err
 }
 
-// NewModbusRTURequestFrame creates a new Modbus RTU request frame from raw bytes read from the wire and a transport
-func NewModbusRTURequestFrame(packet []byte) (*transport.ModbusFrame, error) {
+// ParseModbusRequestFrame creates a new Modbus RTU request frame from raw bytes read from the wire and a transport
+func ParseModbusRequestFrame(packet []byte) (transport.ApplicationDataUnit, error) {
 	pdu, err := newModbusRTURequestProtocolDataUnit(data.FunctionCode(packet[1]), packet[2:len(packet)-2])
 	if err != nil {
 		return nil, err
@@ -83,20 +87,19 @@ func NewModbusRTURequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 	if adu.validateChecksum() != nil {
 		return nil, common.ErrInvalidChecksum
 	}
-	return &transport.ModbusFrame{
-		ApplicationDataUnit: adu,
-		ResponseCreator:     NewModbusFrame,
-	}, nil
+	return adu, nil
 }
 
-// NewModbusRTUResponseFramer creates a new Modbus RTU response frame from a request frame and a response PDU
-func NewModbusFrame(header transport.Header, response *transport.ProtocolDataUnit) *transport.ModbusFrame {
-	return &transport.ModbusFrame{
-		ApplicationDataUnit: &modbusApplicationDataUnit{header: header.(transport.SerialHeader), pdu: response},
-	}
+// NewModbusResponse creates a new Modbus RTU response frame from a request frame and a response PDU
+func NewModbusResponse(header transport.Header, response *transport.ProtocolDataUnit) transport.ApplicationDataUnit {
+	return &modbusApplicationDataUnit{header: header.(transport.SerialHeader), pdu: response}
 }
 
-func NewModbusRTUResponseFrame(packet []byte, valueCount int) (*transport.ModbusFrame, error) {
+func NewModbusRequest(header transport.Header, response *transport.ProtocolDataUnit) transport.ApplicationDataUnit {
+	return &modbusApplicationDataUnit{header: header.(transport.SerialHeader), pdu: response}
+}
+
+func ParseModbusResponseFrame(packet []byte, valueCount int) (transport.ApplicationDataUnit, error) {
 	functionCode := data.FunctionCode(packet[1])
 	op, err := data.ParseModbusResponseOperation(functionCode, packet[2:len(packet)-2], valueCount)
 	if err != nil {
@@ -114,51 +117,5 @@ func NewModbusRTUResponseFrame(packet []byte, valueCount int) (*transport.Modbus
 	if pdu.FunctionCode().IsException() {
 		return nil, pdu.Operation().(*data.ModbusOperationException).Error()
 	}
-	return &transport.ModbusFrame{
-		ApplicationDataUnit: adu,
-		ResponseCreator:     NewModbusFrame,
-	}, nil
-}
-
-func NewModbusTransaction(frame *transport.ModbusFrame, t transport.Transport) transport.ModbusTransaction {
-	return &modbusTransaction{
-		frame:     frame,
-		transport: t.(*modbusRTUTransport),
-	}
-}
-
-type modbusTransaction struct {
-	frame     *transport.ModbusFrame
-	transport *modbusRTUTransport
-}
-
-func (m *modbusTransaction) Read(ctx context.Context) (*transport.ModbusFrame, error) {
-	return m.frame, nil
-}
-
-func (m *modbusTransaction) Exchange(ctx context.Context) (*transport.ModbusFrame, error) {
-	err := m.transport.WriteFrame(m.frame)
-	if err != nil {
-		return nil, err
-	}
-	b, err := m.transport.readResponseFrame(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	valueCount := 0
-	if countable, success := m.frame.PDU().Operation().(data.CountableOperation); success {
-		valueCount = countable.Count()
-	}
-	return NewModbusRTUResponseFrame(b, valueCount)
-}
-
-func (m *modbusTransaction) Write(pdu *transport.ProtocolDataUnit) error {
-	frame := m.frame.ResponseCreator(m.frame.Header(), pdu)
-	m.transport.logger.Info("Response", zap.Object("Frame", frame))
-	return m.transport.WriteFrame(frame)
-}
-
-func (m *modbusTransaction) Frame() *transport.ModbusFrame {
-	return m.frame
+	return adu, nil
 }

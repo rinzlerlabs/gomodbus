@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"go.uber.org/zap"
 )
@@ -18,7 +19,15 @@ type modbusASCIITransport struct {
 	reader *bufio.Reader
 }
 
-func NewModbusTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
+func NewModbusServerTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
+	return &modbusASCIITransport{
+		logger: logger,
+		stream: stream,
+		reader: bufio.NewReader(stream),
+	}
+}
+
+func NewModbusClientTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
 	return &modbusASCIITransport{
 		logger: logger,
 		stream: stream,
@@ -36,20 +45,26 @@ func (t *modbusASCIITransport) readRawFrame(context.Context) ([]byte, error) {
 	return []byte(str), nil
 }
 
-func (t *modbusASCIITransport) AcceptRequest(ctx context.Context) (transport.ModbusTransaction, error) {
-	data, err := t.readRawFrame(ctx)
+func (t *modbusASCIITransport) ReadResponse(ctx context.Context, request transport.ApplicationDataUnit) (transport.ApplicationDataUnit, error) {
+	bytes, err := t.readRawFrame(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	frame, err := NewModbusRequestFrame(data)
-	if err != nil {
-		return nil, err
+	if op, ok := request.PDU().Operation().(data.CountableOperation); ok {
+		return ParseModbusResponseFrame(bytes, op.Count())
 	}
-	return NewModbusTransaction(frame, t), nil
+	return ParseModbusResponseFrame(bytes, 0)
 }
 
-func (t *modbusASCIITransport) WriteFrame(frame *transport.ModbusFrame) error {
+func (t *modbusASCIITransport) ReadRequest(ctx context.Context) (transport.ApplicationDataUnit, error) {
+	bytes, err := t.readRawFrame(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ParseModbusRequestFrame(bytes)
+}
+
+func (t *modbusASCIITransport) WriteFrame(frame transport.ApplicationDataUnit) error {
 	_, err := t.Write([]byte(fmt.Sprintf(":%X\r\n", frame.Bytes())))
 	return err
 }

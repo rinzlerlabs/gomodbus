@@ -5,23 +5,22 @@ import (
 	"github.com/rinzlerlabs/gomodbus/transport/serial"
 )
 
-func NewSerialRequestCreator(createTransaction func(*transport.ModbusFrame, transport.Transport) transport.ModbusTransaction, newModbusFrame func(transport.Header, *transport.ProtocolDataUnit) *transport.ModbusFrame) *serialRequestCreator {
+func NewSerialRequestCreator(newHeader func(uint16) transport.Header, newRequest func(transport.Header, *transport.ProtocolDataUnit) transport.ApplicationDataUnit) *serialRequestCreator {
 	return &serialRequestCreator{
-		createTransaction: createTransaction,
-		newModbusFrame:    newModbusFrame,
+		newHeader:  newHeader,
+		newRequest: newRequest,
 	}
 }
 
 type serialRequestCreator struct {
-	createTransaction func(*transport.ModbusFrame, transport.Transport) transport.ModbusTransaction
-	newModbusFrame    func(transport.Header, *transport.ProtocolDataUnit) *transport.ModbusFrame
+	newHeader  func(address uint16) transport.Header
+	newRequest func(header transport.Header, pdu *transport.ProtocolDataUnit) transport.ApplicationDataUnit
 }
 
-func (s *serialRequestCreator) CreateTransaction(frame *transport.ModbusFrame, transport transport.Transport) transport.ModbusTransaction {
-	return s.createTransaction(frame, transport)
+func (s *serialRequestCreator) NewHeader(address uint16) transport.Header {
+	return serial.NewHeader(address)
 }
 
-func (s *serialRequestCreator) NewModbusFrame(address uint16, pdu *transport.ProtocolDataUnit) *transport.ModbusFrame {
-	header := serial.NewHeader(address)
-	return s.newModbusFrame(header, pdu)
+func (s *serialRequestCreator) NewRequest(header transport.Header, pdu *transport.ProtocolDataUnit) transport.ApplicationDataUnit {
+	return s.newRequest(header, pdu)
 }

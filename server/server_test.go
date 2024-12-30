@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"testing"
 
 	"github.com/rinzlerlabs/gomodbus/data"
@@ -36,28 +35,6 @@ func (m *mockADU) PDU() *transport.ProtocolDataUnit {
 func (m *mockADU) Checksum() transport.ErrorCheck {
 	args := m.Called()
 	return args.Get(0).(transport.ErrorCheck)
-}
-
-type mockModbusTransaction struct {
-	mock.Mock
-}
-
-// Exchange implements transport.ModbusTransaction.
-func (m *mockModbusTransaction) Exchange(context.Context) (*transport.ModbusFrame, error) {
-	args := m.Called()
-	return args.Get(0).(*transport.ModbusFrame), args.Error(1)
-}
-
-// Frame implements transport.ModbusTransaction.
-func (m *mockModbusTransaction) Frame() *transport.ModbusFrame {
-	args := m.Called()
-	return args.Get(0).(*transport.ModbusFrame)
-}
-
-// Write implements transport.ModbusTransaction.
-func (m *mockModbusTransaction) Write(*transport.ProtocolDataUnit) error {
-	args := m.Called()
-	return args.Error(0)
 }
 
 func TestServerStatsTrackServerStats(t *testing.T) {
@@ -225,14 +202,9 @@ func TestServerStatsTrackServerStats(t *testing.T) {
 			assert.NotNil(t, stats)
 
 			for _, op := range tt.ops {
-				mockTxn := &mockModbusTransaction{}
 				mockADU := &mockADU{}
-				frame := &transport.ModbusFrame{
-					ApplicationDataUnit: mockADU,
-				}
 				mockADU.On("PDU").Return(transport.NewProtocolDataUnit(op)).Once()
-				mockTxn.On("Frame").Return(frame)
-				stats.AddRequest(mockTxn)
+				stats.AddRequest(mockADU)
 			}
 
 			assert.Equal(t, tt.readCoilsCount, stats.TotalReadCoilsRequests)

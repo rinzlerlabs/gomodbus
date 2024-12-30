@@ -1,14 +1,31 @@
 package ascii
 
 import (
+	"context"
 	"io"
 	"testing"
 	"time"
 
+	"github.com/rinzlerlabs/gomodbus/client"
+	"github.com/rinzlerlabs/gomodbus/client/serial"
 	"github.com/rinzlerlabs/gomodbus/common"
+	"github.com/rinzlerlabs/gomodbus/transport"
+	st "github.com/rinzlerlabs/gomodbus/transport/serial"
+	"github.com/rinzlerlabs/gomodbus/transport/serial/ascii"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
+
+func newModbusClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) client.ModbusClient {
+	ctx := context.Background()
+	t := ascii.NewModbusClientTransport(stream, logger)
+	newHeader := func(address uint16) transport.Header {
+		return st.NewHeader(address)
+	}
+	requestCreator := serial.NewSerialRequestCreator(newHeader, ascii.NewModbusRequest)
+	return client.NewModbusClient(ctx, logger, t, requestCreator, responseTimeout)
+}
 
 type testSerialPort struct {
 	readData  []byte
