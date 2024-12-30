@@ -2,7 +2,6 @@ package ascii
 
 import (
 	"io"
-	"net/url"
 	"testing"
 	"time"
 
@@ -424,12 +423,4 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 			assert.Equal(t, tt.toServer, string(port.writeData))
 		})
 	}
-}
-
-func TestFoo(t *testing.T) {
-	u, e := url.Parse("rtu:///dev/ttyUSB0")
-	assert.NoError(t, e)
-	assert.NotNil(t, u)
-	assert.Equal(t, "rtu", u.Scheme)
-	assert.Equal(t, "/dev/ttyUSB0", u.Path)
 }

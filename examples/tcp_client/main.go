@@ -1,8 +1,6 @@
 package main
 
 import (
-	"time"
-
 	"github.com/rinzlerlabs/gomodbus/client/network"
 	"go.uber.org/zap"
 )
@@ -13,7 +11,8 @@ func main() {
 		panic(err)
 	}
 
-	modbusClient, err := network.NewModbusClient(logger, "127.0.0.1:502", 10*time.Second)
+	uri := "tcp://:502?responseTimeout=10s"
+	modbusClient, err := network.NewModbusClient(logger, uri)
 	if err != nil {
 		logger.Error("Failed to create modbus client", zap.Error(err))
 		return

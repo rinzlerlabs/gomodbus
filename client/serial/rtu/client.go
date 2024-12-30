@@ -3,6 +3,7 @@ package rtu
 import (
 	"context"
 	"io"
+	"net/url"
 	"time"
 
 	sp "github.com/goburrow/serial"
@@ -12,18 +13,32 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewModbusClient(logger *zap.Logger, settings *sp.Config, responseTimeout time.Duration) (client.ModbusClient, error) {
-	return NewModbusClientWithContext(context.Background(), logger, settings, responseTimeout)
+func NewModbusClientFromURI(logger *zap.Logger, uri string) (client.ModbusClient, error) {
+	return NewModbusClientFromUriWithContext(context.Background(), logger, uri)
 }
 
-func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, settings *sp.Config, responseTimeout time.Duration) (client.ModbusClient, error) {
-	port, err := sp.Open(settings)
+func NewModbusClientFromUriWithContext(ctx context.Context, logger *zap.Logger, uri string) (client.ModbusClient, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
+	settings, err := serial.NewClientSettingsFromURI(u)
+	return NewModbusClientWithContext(ctx, logger, settings)
+}
+
+func NewModbusClient(logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
+	return NewModbusClientWithContext(context.Background(), logger, settings)
+}
+
+func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
+	config := settings.SerialSettings().ToPortConfig()
+	port, err := sp.Open(config)
 	if err != nil {
 		return nil, err
 	}
 	transport := rtu.NewModbusClientTransport(port, logger)
 	requestCreator := serial.NewSerialRequestCreator(rtu.NewModbusTransaction, rtu.NewModbusFrame)
-	return client.NewModbusClient(ctx, logger, transport, requestCreator, responseTimeout), nil
+	return client.NewModbusClient(ctx, logger, transport, requestCreator, settings.ResponseTimeout()), nil
 }
 
 func newModbusClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) client.ModbusClient {

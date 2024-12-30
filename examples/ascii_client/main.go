@@ -1,9 +1,6 @@
 package main
 
 import (
-	"time"
-
-	"github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/client/serial/ascii"
 	"go.uber.org/zap"
 )
@@ -13,15 +10,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	settings := &serial.Config{
-		Address:  "/dev/ttyUSB0",
-		BaudRate: 19200,
-		DataBits: 8,
-		Parity:   "N",
-		StopBits: 1,
-	}
+	uri := "rtu:///dev/ttyUSB0?baud=19200&dataBits=7&parity=N&stopBits=1&responseTimeout=1s"
 
-	modbusClient, err := ascii.NewModbusClient(logger, settings, 1*time.Second)
+	modbusClient, err := ascii.NewModbusClient(logger, uri)
 	if err != nil {
 		logger.Error("Failed to create modbus client", zap.Error(err))
 		return
