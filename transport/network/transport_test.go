@@ -7,6 +7,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/stretchr/testify/assert"
@@ -79,7 +80,11 @@ func TestReadCoilsRequest(t *testing.T) {
 			name:    "Valid",
 			request: "0002000000050101000A000D",
 		},
-		// TODO: Add tests for bad headers
+		{
+			name:      "InvalidLength",
+			request:   "0002000000040101000A000D",
+			readError: common.ErrInvalidLength,
+		},
 	}
 
 	for _, tt := range tests {
@@ -120,6 +125,11 @@ func TestReadDiscreteInputsRequest(t *testing.T) {
 		{
 			name:    "Valid",
 			request: "0002000000050102000A000D",
+		},
+		{
+			name:      "InvalidLength",
+			request:   "0002000000040102000A000D",
+			readError: common.ErrInvalidLength,
 		},
 	}
 
@@ -162,6 +172,11 @@ func TestReadHoldingRegistersRequest(t *testing.T) {
 			name:    "Valid",
 			request: "000200000005010300000002",
 		},
+		{
+			name:      "InvalidLength",
+			request:   "000200000004010300000002",
+			readError: common.ErrInvalidLength,
+		},
 	}
 
 	for _, tt := range tests {
@@ -202,6 +217,11 @@ func TestReadInputRegistersRequest(t *testing.T) {
 		{
 			name:    "Valid",
 			request: "000200000005010400000002",
+		},
+		{
+			name:      "InvalidLength",
+			request:   "000200000004010400000002",
+			readError: common.ErrInvalidLength,
 		},
 	}
 
@@ -244,6 +264,11 @@ func TestWriteSingleCoilRequest(t *testing.T) {
 			name:    "Valid",
 			request: "0002000000050105000AFF00",
 		},
+		{
+			name:      "InvalidLength",
+			request:   "0002000000040105000AFF00",
+			readError: common.ErrInvalidLength,
+		},
 	}
 
 	for _, tt := range tests {
@@ -285,6 +310,11 @@ func TestWriteSingleRegisterRequest(t *testing.T) {
 			name:    "Valid",
 			request: "000200000005010600100003",
 		},
+		{
+			name:      "InvalidLength",
+			request:   "000200000004010600100003",
+			readError: common.ErrInvalidLength,
+		},
 	}
 
 	for _, tt := range tests {
@@ -324,7 +354,12 @@ func TestWriteMultipleCoilsRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "000200000018010F0000001803018307",
+			request: "000200000009010F0000001803018307",
+		},
+		{
+			name:      "InvalidLength",
+			request:   "000200000008010F0000001803018307",
+			readError: common.ErrInvalidLength,
 		},
 	}
 
@@ -365,7 +400,12 @@ func TestWriteMultipleRegistersRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "0002000000200110000000020400040002",
+			request: "00020000000A0110000000020400040002",
+		},
+		{
+			name:      "InvalidLength",
+			request:   "00020000000B0110000000020400040002",
+			readError: common.ErrInvalidLength,
 		},
 	}
 

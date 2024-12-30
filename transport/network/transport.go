@@ -5,7 +5,9 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"go.uber.org/zap"
@@ -17,11 +19,12 @@ type ReadWriteCloseRemoteAddresser interface {
 }
 
 type modbusTCPSocketTransport struct {
-	logger        *zap.Logger
-	mu            sync.Mutex
-	conn          ReadWriteCloseRemoteAddresser
-	frameBuilder  transport.FrameBuilder
-	headerManager *headerManager
+	logger          *zap.Logger
+	mu              sync.Mutex
+	conn            ReadWriteCloseRemoteAddresser
+	frameBuilder    transport.FrameBuilder
+	headerManager   *headerManager
+	responseTimeout time.Duration
 }
 
 func NewModbusServerTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Logger) transport.Transport {
@@ -33,12 +36,13 @@ func NewModbusServerTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Lo
 	}
 }
 
-func NewModbusClientTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Logger) transport.Transport {
+func NewModbusClientTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Logger, responseTimeout time.Duration) transport.Transport {
 	return &modbusTCPSocketTransport{
-		logger:        logger,
-		conn:          conn,
-		frameBuilder:  NewFrameBuilder(),
-		headerManager: &headerManager{},
+		logger:          logger,
+		conn:            conn,
+		frameBuilder:    NewFrameBuilder(),
+		headerManager:   &headerManager{},
+		responseTimeout: responseTimeout,
 	}
 }
 
@@ -96,6 +100,8 @@ func (m *modbusTCPSocketTransport) ReadResponse(ctx context.Context, request tra
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
+	case <-time.After(m.responseTimeout):
+		return nil, common.ErrTimeout
 	case err := <-errChan:
 		return nil, err
 	case data := <-dataChan:

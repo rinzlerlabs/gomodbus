@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"sync"
-	"time"
 
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
@@ -34,21 +33,19 @@ type ModbusClient interface {
 }
 
 // NewModbusClient creates a new Modbus client.
-func NewModbusClient(ctx context.Context, logger *zap.Logger, transport transport.Transport, responseTimeout time.Duration) ModbusClient {
+func NewModbusClient(ctx context.Context, logger *zap.Logger, transport transport.Transport) ModbusClient {
 	return &modbusClient{
-		logger:          logger,
-		transport:       transport,
-		ctx:             ctx,
-		responseTimeout: responseTimeout,
+		logger:    logger,
+		transport: transport,
+		ctx:       ctx,
 	}
 }
 
 type modbusClient struct {
-	logger          *zap.Logger
-	transport       transport.Transport
-	mu              sync.Mutex
-	ctx             context.Context
-	responseTimeout time.Duration
+	logger    *zap.Logger
+	transport transport.Transport
+	mu        sync.Mutex
+	ctx       context.Context
 }
 
 func (m *modbusClient) sendRequestAndReadResponse(address uint16, req *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error) {
@@ -58,9 +55,7 @@ func (m *modbusClient) sendRequestAndReadResponse(address uint16, req *transport
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(m.ctx, m.responseTimeout)
-	defer cancel()
-	return m.transport.ReadResponse(ctx, adu)
+	return m.transport.ReadResponse(m.ctx, adu)
 }
 
 func (m *modbusClient) Close() error {

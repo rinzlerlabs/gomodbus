@@ -435,7 +435,7 @@ func TestWriteMultipleCoils(t *testing.T) {
 	}{
 		{
 			name:              "Valid",
-			request:           "000200000018010F0000001803018307",
+			request:           "000200000009010F0000001803018307",
 			response:          "000200000005010F00000018",
 			expectedRegisters: []bool{true, false, false, false, false, false, false, false, true, true, false, false, false, false, false, true, true, true, true, false, false, false, false, false},
 		},
@@ -476,7 +476,7 @@ func TestWriteMultipleRegisters(t *testing.T) {
 	}{
 		{
 			name:              "Valid",
-			request:           "0002000000200110000000020400040002",
+			request:           "00020000000A0110000000020400040002",
 			response:          "000200000005011000000002",
 			expectedRegisters: []uint16{0x0004, 0x0002},
 		},

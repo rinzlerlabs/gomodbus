@@ -3,6 +3,7 @@ package network
 import (
 	"fmt"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"go.uber.org/zap/zapcore"
@@ -87,10 +88,12 @@ func (m *modbusApplicationDataUnit) Bytes() []byte {
 func ParseModbusRequestFrame(packet []byte) (transport.ApplicationDataUnit, error) {
 	txId := packet[0:2]
 	protoId := packet[2:4]
-	// length := packet[4:6]
+	length := int(packet[4])<<8 | int(packet[5])
 	unitId := packet[6]
 	packet = packet[7:]
-	// TODO check length
+	if len(packet) != length {
+		return nil, common.ErrInvalidLength
+	}
 	functionCode := data.FunctionCode(packet[0])
 	op, err := data.ParseModbusRequestOperation(functionCode, packet[1:])
 	if err != nil {

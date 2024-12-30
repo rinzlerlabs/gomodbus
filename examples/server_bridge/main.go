@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"os/signal"
+	"time"
 
 	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/server"
@@ -31,7 +32,7 @@ func main() {
 	}
 
 	// Create the RTU server
-	one, err := rtu.NewModbusServerWithHandler(logger, serialSettings, 91, handler)
+	one, err := rtu.NewModbusServerWithHandler(logger, serialSettings, 91, 1*time.Second, handler)
 	if err != nil {
 		logger.Error("Failed to create RTU server", zap.Error(err))
 		return

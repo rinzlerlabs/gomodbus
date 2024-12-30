@@ -37,6 +37,6 @@ func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, setting
 	if err != nil {
 		return nil, err
 	}
-	t := rtu.NewModbusClientTransport(port, logger)
-	return client.NewModbusClient(ctx, logger, t, settings.ResponseTimeout()), nil
+	t := rtu.NewModbusClientTransport(port, logger, settings.ResponseTimeout())
+	return client.NewModbusClient(ctx, logger, t), nil
 }

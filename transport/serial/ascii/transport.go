@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/rinzlerlabs/gomodbus/transport/serial"
@@ -14,11 +16,12 @@ import (
 )
 
 type modbusASCIITransport struct {
-	logger       *zap.Logger
-	mu           sync.Mutex
-	stream       io.ReadWriteCloser
-	reader       *bufio.Reader
-	frameBuilder transport.FrameBuilder
+	logger          *zap.Logger
+	mu              sync.Mutex
+	stream          io.ReadWriteCloser
+	reader          *bufio.Reader
+	frameBuilder    transport.FrameBuilder
+	responseTimeout time.Duration
 }
 
 func NewModbusServerTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
@@ -30,12 +33,13 @@ func NewModbusServerTransport(stream io.ReadWriteCloser, logger *zap.Logger) tra
 	}
 }
 
-func NewModbusClientTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
+func NewModbusClientTransport(stream io.ReadWriteCloser, logger *zap.Logger, responseTimeout time.Duration) transport.Transport {
 	return &modbusASCIITransport{
-		logger:       logger,
-		stream:       stream,
-		reader:       bufio.NewReader(stream),
-		frameBuilder: serial.NewFrameBuilder(NewModbusApplicationDataUnit),
+		logger:          logger,
+		stream:          stream,
+		reader:          bufio.NewReader(stream),
+		frameBuilder:    serial.NewFrameBuilder(NewModbusApplicationDataUnit),
+		responseTimeout: responseTimeout,
 	}
 }
 
@@ -50,14 +54,31 @@ func (t *modbusASCIITransport) readRawFrame(context.Context) ([]byte, error) {
 }
 
 func (t *modbusASCIITransport) ReadResponse(ctx context.Context, request transport.ApplicationDataUnit) (transport.ApplicationDataUnit, error) {
-	bytes, err := t.readRawFrame(ctx)
-	if err != nil {
+	bytesChan := make(chan []byte)
+	errChan := make(chan error)
+
+	go func() {
+		bytes, err := t.readRawFrame(ctx)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		bytesChan <- bytes
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-time.After(t.responseTimeout):
+		return nil, common.ErrTimeout
+	case err := <-errChan:
 		return nil, err
+	case bytes := <-bytesChan:
+		if op, ok := request.PDU().Operation().(data.CountableOperation); ok {
+			return ParseModbusResponseFrame(bytes, op.Count())
+		}
+		return ParseModbusResponseFrame(bytes, 0)
 	}
-	if op, ok := request.PDU().Operation().(data.CountableOperation); ok {
-		return ParseModbusResponseFrame(bytes, op.Count())
-	}
-	return ParseModbusResponseFrame(bytes, 0)
 }
 
 func (t *modbusASCIITransport) ReadRequest(ctx context.Context) (transport.ApplicationDataUnit, error) {

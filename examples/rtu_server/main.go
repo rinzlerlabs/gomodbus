@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"os/signal"
+	"time"
 
 	sp "github.com/goburrow/serial"
 	rtu "github.com/rinzlerlabs/gomodbus/server/serial/rtu"
@@ -22,7 +23,7 @@ func main() {
 		Parity:   "N",
 		StopBits: 2,
 	}
-	server, err := rtu.NewModbusServer(logger, settings, 91)
+	server, err := rtu.NewModbusServer(logger, settings, 91, 1*time.Second)
 	if err != nil {
 		panic(err)
 	}
