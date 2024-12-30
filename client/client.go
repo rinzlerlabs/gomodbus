@@ -34,13 +34,12 @@ type ModbusClient interface {
 }
 
 // NewModbusClient creates a new Modbus client.
-func NewModbusClient(ctx context.Context, logger *zap.Logger, transport transport.Transport, requestCreator requestCreator, responseTimeout time.Duration) ModbusClient {
+func NewModbusClient(ctx context.Context, logger *zap.Logger, transport transport.Transport, responseTimeout time.Duration) ModbusClient {
 	return &modbusClient{
 		logger:          logger,
 		transport:       transport,
 		ctx:             ctx,
 		responseTimeout: responseTimeout,
-		requestCreator:  requestCreator,
 	}
 }
 
@@ -50,20 +49,12 @@ type modbusClient struct {
 	mu              sync.Mutex
 	ctx             context.Context
 	responseTimeout time.Duration
-	requestCreator  requestCreator
-}
-
-type requestCreator interface {
-	NewHeader(address uint16) transport.Header
-	NewRequest(transport.Header, *transport.ProtocolDataUnit) transport.ApplicationDataUnit
 }
 
 func (m *modbusClient) sendRequestAndReadResponse(address uint16, req *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	header := m.requestCreator.NewHeader(address)
-	adu := m.requestCreator.NewRequest(header, req)
-	err := m.transport.WriteFrame(adu)
+	adu, err := m.transport.WriteRequestFrame(address, req)
 	if err != nil {
 		return nil, err
 	}

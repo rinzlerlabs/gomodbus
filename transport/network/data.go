@@ -52,6 +52,9 @@ type modbusApplicationDataUnit struct {
 }
 
 func (m modbusApplicationDataUnit) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
+	encoder.AddString("ProtocolID", transport.EncodeToString(m.header.ProtocolID()))
+	encoder.AddString("TransactionID", transport.EncodeToString(m.header.TransactionID()))
+	encoder.AddString("UnitID", transport.EncodeToString([]byte{m.header.UnitID()}))
 	encoder.AddObject("PDU", m.pdu)
 	return nil
 }
@@ -121,11 +124,7 @@ func ParseModbusServerResponseFrame(packet []byte, valueCount int) (transport.Ap
 	return adu, nil
 }
 
-func NewModbusResponse(header transport.Header, response *transport.ProtocolDataUnit) transport.ApplicationDataUnit {
-	return &modbusApplicationDataUnit{header: header.(transport.NetworkHeader), pdu: response}
-}
-
-func NewModbusRequest(header transport.Header, response *transport.ProtocolDataUnit) transport.ApplicationDataUnit {
+func NewModbusApplicationDataUnit(header transport.Header, response *transport.ProtocolDataUnit) transport.ApplicationDataUnit {
 	return &modbusApplicationDataUnit{header: header.(transport.NetworkHeader), pdu: response}
 }
 
@@ -135,6 +134,9 @@ func NewFrameBuilder() transport.FrameBuilder {
 
 type frameBuilder struct{}
 
-func (fb *frameBuilder) BuildResponseFrame(header transport.Header, response *transport.ProtocolDataUnit) transport.ApplicationDataUnit {
-	return &modbusApplicationDataUnit{header: header.(transport.NetworkHeader), pdu: response}
+func (fb *frameBuilder) BuildResponseFrame(header transport.Header, response *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error) {
+	if networkHeader, ok := header.(transport.NetworkHeader); ok {
+		return NewModbusApplicationDataUnit(networkHeader, response), nil
+	}
+	return nil, fmt.Errorf("invalid header")
 }

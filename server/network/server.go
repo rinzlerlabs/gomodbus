@@ -36,22 +36,6 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 	}, nil
 }
 
-func newModbusServerWithHandler(logger *zap.Logger, listener net.Listener, handler server.RequestHandler) (server.ModbusServer, error) {
-	if handler == nil {
-		return nil, errors.New("handler is required")
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-
-	return &modbusServer{
-		logger:    logger,
-		handler:   handler,
-		cancelCtx: ctx,
-		cancel:    cancel,
-		listener:  listener,
-		stats:     server.NewServerStats(),
-	}, nil
-}
-
 type modbusServer struct {
 	handler      server.RequestHandler
 	cancelCtx    context.Context
@@ -172,8 +156,8 @@ func (s *modbusServer) handleClient(conn net.Conn) {
 			s.stats.AddError(err)
 			s.logger.Error("Failed to handle request", zap.Error(err))
 		}
-		responseFrame := s.frameBuilder.BuildResponseFrame(op.Header(), resp)
-		if err := t.WriteFrame(responseFrame); err != nil {
+		if err := t.WriteResponseFrame(op.Header(), resp); err != nil {
+			s.stats.AddError(err)
 			s.logger.Error("Failed to write response", zap.Error(err))
 		}
 	}

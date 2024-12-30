@@ -1,7 +1,9 @@
 package network
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -12,10 +14,25 @@ import (
 
 	"github.com/rinzlerlabs/gomodbus/server"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
-// Read coils offset 1 size 6 00 08 00 00 00 06 01 01 00 01 00 06
+func newModbusServerWithHandler(logger *zap.Logger, listener net.Listener, handler server.RequestHandler) (server.ModbusServer, error) {
+	if handler == nil {
+		return nil, errors.New("handler is required")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return &modbusServer{
+		logger:    logger,
+		handler:   handler,
+		cancelCtx: ctx,
+		cancel:    cancel,
+		listener:  listener,
+		stats:     server.NewServerStats(),
+	}, nil
+}
 
 type timeoutError struct{}
 

@@ -7,8 +7,6 @@ import (
 	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/client"
 	"github.com/rinzlerlabs/gomodbus/client/serial"
-	"github.com/rinzlerlabs/gomodbus/transport"
-	st "github.com/rinzlerlabs/gomodbus/transport/serial"
 	"github.com/rinzlerlabs/gomodbus/transport/serial/ascii"
 	"go.uber.org/zap"
 )
@@ -40,9 +38,5 @@ func NewModbusClientFromSettingsWithContext(ctx context.Context, logger *zap.Log
 		return nil, err
 	}
 	t := ascii.NewModbusClientTransport(port, logger)
-	newHeader := func(address uint16) transport.Header {
-		return st.NewHeader(address)
-	}
-	requestCreator := serial.NewSerialRequestCreator(newHeader, ascii.NewModbusRequest)
-	return client.NewModbusClient(ctx, logger, t, requestCreator, settings.ResponseTimeout()), nil
+	return client.NewModbusClient(ctx, logger, t, settings.ResponseTimeout()), nil
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/rinzlerlabs/gomodbus/transport/network"
 )
 
-func NewNetworkRequestCreator(newRequest func(transport.Header, *transport.ProtocolDataUnit) transport.ApplicationDataUnit) *networkRequestCreator {
+func NewNetworkRequestCreator(newRequest func(transport.Header, *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error)) *networkRequestCreator {
 	return &networkRequestCreator{
 		transactionId: 0,
 		newRequest:    newRequest,
@@ -17,7 +17,7 @@ func NewNetworkRequestCreator(newRequest func(transport.Header, *transport.Proto
 type networkRequestCreator struct {
 	mu            sync.Mutex
 	transactionId uint16
-	newRequest    func(header transport.Header, pdu *transport.ProtocolDataUnit) transport.ApplicationDataUnit
+	newRequest    func(header transport.Header, pdu *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error)
 }
 
 func (s *networkRequestCreator) NewHeader(uint16) transport.Header {
@@ -28,6 +28,6 @@ func (s *networkRequestCreator) NewHeader(uint16) transport.Header {
 	return network.NewHeader(txnId, []byte{0x00, 0x00}, byte(0x01))
 }
 
-func (s *networkRequestCreator) NewRequest(header transport.Header, pdu *transport.ProtocolDataUnit) transport.ApplicationDataUnit {
+func (s *networkRequestCreator) NewRequest(header transport.Header, pdu *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error) {
 	return s.newRequest(header, pdu)
 }

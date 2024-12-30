@@ -17,22 +17,28 @@ type ReadWriteCloseRemoteAddresser interface {
 }
 
 type modbusTCPSocketTransport struct {
-	logger *zap.Logger
-	mu     sync.Mutex
-	conn   ReadWriteCloseRemoteAddresser
+	logger        *zap.Logger
+	mu            sync.Mutex
+	conn          ReadWriteCloseRemoteAddresser
+	frameBuilder  transport.FrameBuilder
+	headerManager *headerManager
 }
 
 func NewModbusServerTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Logger) transport.Transport {
 	return &modbusTCPSocketTransport{
-		logger: logger,
-		conn:   conn,
+		logger:        logger,
+		conn:          conn,
+		frameBuilder:  NewFrameBuilder(),
+		headerManager: &headerManager{},
 	}
 }
 
 func NewModbusClientTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Logger) transport.Transport {
 	return &modbusTCPSocketTransport{
-		logger: logger,
-		conn:   conn,
+		logger:        logger,
+		conn:          conn,
+		frameBuilder:  NewFrameBuilder(),
+		headerManager: &headerManager{},
 	}
 }
 
@@ -109,7 +115,29 @@ func (m *modbusTCPSocketTransport) Flush(context.Context) error {
 	return nil
 }
 
-func (m *modbusTCPSocketTransport) Write(p []byte) (int, error) {
+func (m *modbusTCPSocketTransport) WriteRequestFrame(address uint16, pdu *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error) {
+	header := m.headerManager.NewHeader()
+	adu, err := m.frameBuilder.BuildResponseFrame(header, pdu)
+	if err != nil {
+		return nil, err
+	}
+	_, err = m.write(adu.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return adu, nil
+}
+
+func (m *modbusTCPSocketTransport) WriteResponseFrame(header transport.Header, pdu *transport.ProtocolDataUnit) error {
+	adu, err := m.frameBuilder.BuildResponseFrame(header, pdu)
+	if err != nil {
+		return err
+	}
+	_, err = m.write(adu.Bytes())
+	return err
+}
+
+func (m *modbusTCPSocketTransport) write(p []byte) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.logger.Debug("Writing data to TCP socket", zap.String("data", transport.EncodeToString(p)))
@@ -121,11 +149,6 @@ func (m *modbusTCPSocketTransport) Write(p []byte) (int, error) {
 		return n, io.ErrShortWrite
 	}
 	return n, nil
-}
-
-func (m *modbusTCPSocketTransport) WriteFrame(frame transport.ApplicationDataUnit) error {
-	_, err := m.Write(frame.Bytes())
-	return err
 }
 
 func (t *modbusTCPSocketTransport) readRequestFrame(ctx context.Context) (transport.ApplicationDataUnit, error) {
@@ -145,4 +168,17 @@ func (t *modbusTCPSocketTransport) readResponseFrame(ctx context.Context, reques
 		return ParseModbusServerResponseFrame(bytes, op.Count())
 	}
 	return ParseModbusServerResponseFrame(bytes, 0)
+}
+
+type headerManager struct {
+	mu            sync.Mutex
+	transactionID uint16
+}
+
+func (hm *headerManager) NewHeader() transport.Header {
+	hm.mu.Lock()
+	defer hm.mu.Unlock()
+	hm.transactionID++
+	txnId := []byte{byte(hm.transactionID >> 8), byte(hm.transactionID & 0xff)}
+	return NewHeader(txnId, []byte{0x00, 0x00}, byte(0x01))
 }

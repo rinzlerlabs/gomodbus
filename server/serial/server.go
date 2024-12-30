@@ -18,7 +18,7 @@ type ModbusSerialServer interface {
 	Handler() server.RequestHandler
 }
 
-func NewModbusSerialServerWithCreator(logger *zap.Logger, serialSettings *sp.Config, serverAddress uint16, handler server.RequestHandler, frameBuilder transport.FrameBuilder, transportCreator func() (transport.Transport, error)) (ModbusSerialServer, error) {
+func NewModbusSerialServerWithCreator(logger *zap.Logger, serialSettings *sp.Config, serverAddress uint16, handler server.RequestHandler, transportCreator func() (transport.Transport, error)) (ModbusSerialServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
@@ -30,26 +30,24 @@ func NewModbusSerialServerWithCreator(logger *zap.Logger, serialSettings *sp.Con
 		cancel:           cancel,
 		serialSettings:   serialSettings,
 		address:          serverAddress,
-		frameBuilder:     frameBuilder,
 		transportCreator: transportCreator,
 		stats:            server.NewServerStats(),
 	}, nil
 }
 
-func NewModbusSerialServerWithTransport(logger *zap.Logger, serverAddress uint16, handler server.RequestHandler, frameBuilder transport.FrameBuilder, transport transport.Transport) (ModbusSerialServer, error) {
+func NewModbusSerialServerWithTransport(logger *zap.Logger, serverAddress uint16, handler server.RequestHandler, transport transport.Transport) (ModbusSerialServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &modbusSerialServer{
-		logger:       logger,
-		handler:      handler,
-		cancelCtx:    ctx,
-		cancel:       cancel,
-		address:      serverAddress,
-		frameBuilder: frameBuilder,
-		transport:    transport,
-		stats:        server.NewServerStats(),
+		logger:    logger,
+		handler:   handler,
+		cancelCtx: ctx,
+		cancel:    cancel,
+		address:   serverAddress,
+		transport: transport,
+		stats:     server.NewServerStats(),
 	}, nil
 }
 
@@ -63,7 +61,6 @@ type modbusSerialServer struct {
 	serialSettings   *sp.Config
 	transportCreator func() (transport.Transport, error)
 	transport        transport.Transport
-	frameBuilder     transport.FrameBuilder
 	isRunning        bool
 	wg               sync.WaitGroup
 	stats            *server.ServerStats
@@ -161,8 +158,8 @@ func (s *modbusSerialServer) run() {
 				s.stats.AddError(err)
 				s.logger.Error("Failed to handle request", zap.Error(err))
 			}
-			responseFrame := s.frameBuilder.BuildResponseFrame(op.Header(), resp)
-			if err := s.transport.WriteFrame(responseFrame); err != nil {
+			if err := s.transport.WriteResponseFrame(op.Header(), resp); err != nil {
+				s.stats.AddError(err)
 				s.logger.Error("Failed to write response", zap.Error(err))
 			}
 		}

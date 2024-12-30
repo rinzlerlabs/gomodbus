@@ -7,10 +7,7 @@ import (
 	"time"
 
 	"github.com/rinzlerlabs/gomodbus/client"
-	"github.com/rinzlerlabs/gomodbus/client/serial"
 	"github.com/rinzlerlabs/gomodbus/common"
-	"github.com/rinzlerlabs/gomodbus/transport"
-	st "github.com/rinzlerlabs/gomodbus/transport/serial"
 	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -20,11 +17,7 @@ import (
 func newModbusClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) client.ModbusClient {
 	ctx := context.Background()
 	t := rtu.NewModbusClientTransport(stream, logger)
-	newHeader := func(address uint16) transport.Header {
-		return st.NewHeader(address)
-	}
-	requestCreator := serial.NewSerialRequestCreator(newHeader, rtu.NewModbusRequest)
-	return client.NewModbusClient(ctx, logger, t, requestCreator, responseTimeout)
+	return client.NewModbusClient(ctx, logger, t, responseTimeout)
 }
 
 type testSerialPort struct {

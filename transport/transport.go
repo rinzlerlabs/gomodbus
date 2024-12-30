@@ -10,8 +10,8 @@ type Transport interface {
 	Flush(context.Context) error
 	ReadRequest(context.Context) (ApplicationDataUnit, error)
 	ReadResponse(context.Context, ApplicationDataUnit) (ApplicationDataUnit, error)
-	WriteFrame(ApplicationDataUnit) error
-	Write([]byte) (int, error)
+	WriteRequestFrame(uint16, *ProtocolDataUnit) (ApplicationDataUnit, error)
+	WriteResponseFrame(Header, *ProtocolDataUnit) error
 	Close() error
 }
 

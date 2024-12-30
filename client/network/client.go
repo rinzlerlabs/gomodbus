@@ -43,6 +43,5 @@ func NewModbusClientFromSettingsWithContext(ctx context.Context, logger *zap.Log
 		logger.Error("Failed to connect to endpoint", zap.String("endpoint", settings.Endpoint.String()), zap.Error(err))
 		return nil, err
 	}
-	creator := NewNetworkRequestCreator(transport.NewModbusRequest)
-	return client.NewModbusClient(ctx, logger, transport.NewModbusClientTransport(conn, logger), creator, settings.ResponseTimeout), nil
+	return client.NewModbusClient(ctx, logger, transport.NewModbusClientTransport(conn, logger), settings.ResponseTimeout), nil
 }

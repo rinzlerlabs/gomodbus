@@ -1,14 +1,22 @@
 package rtu
 
 import (
+	"io"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/rinzlerlabs/gomodbus/server"
+	"github.com/rinzlerlabs/gomodbus/server/serial"
+	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
+
+func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {
+	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, rtu.NewModbusServerTransport(stream, logger, serverAddress))
+}
 
 type testSerialPort struct {
 	firstReadDone bool

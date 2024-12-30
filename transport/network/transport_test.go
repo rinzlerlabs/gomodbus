@@ -65,7 +65,7 @@ func TestAcceptRequest(t *testing.T) {
 	assert.Equal(t, byte(0x01), txn.Header().(transport.NetworkHeader).UnitID())
 	assert.Equal(t, data.FunctionCode(0x01), txn.PDU().FunctionCode())
 	assert.Equal(t, []byte{0x00, 0x0A, 0x00, 0x0D}, data.ModbusOperationToBytes(txn.PDU().Operation()))
-	assert.Equal(t, []byte{0x00}, []byte(txn.Checksum()))
+	assert.Equal(t, []byte{}, []byte(txn.Checksum()))
 }
 
 func TestReadCoilsRequest(t *testing.T) {
@@ -105,7 +105,7 @@ func TestReadCoilsRequest(t *testing.T) {
 			assert.Equal(t, data.ReadCoils, txn.PDU().FunctionCode())
 			assert.Equal(t, uint16(0x0A), txn.PDU().Operation().(*data.ReadCoilsRequest).Offset())
 			assert.Equal(t, int(0x0D), txn.PDU().Operation().(*data.ReadCoilsRequest).Count())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
+			assert.Equal(t, transport.ErrorCheck([]byte{}), txn.Checksum())
 		})
 	}
 }
@@ -146,7 +146,7 @@ func TestReadDiscreteInputsRequest(t *testing.T) {
 			assert.Equal(t, data.ReadDiscreteInputs, txn.PDU().FunctionCode())
 			assert.Equal(t, uint16(0x0A), txn.PDU().Operation().(*data.ReadDiscreteInputsRequest).Offset())
 			assert.Equal(t, int(0x0D), txn.PDU().Operation().(*data.ReadDiscreteInputsRequest).Count())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
+			assert.Equal(t, transport.ErrorCheck([]byte{}), txn.Checksum())
 		})
 	}
 }
@@ -187,7 +187,7 @@ func TestReadHoldingRegistersRequest(t *testing.T) {
 			assert.Equal(t, data.ReadHoldingRegisters, txn.PDU().FunctionCode())
 			assert.Equal(t, uint16(0x00), txn.PDU().Operation().(*data.ReadHoldingRegistersRequest).Offset())
 			assert.Equal(t, int(0x02), txn.PDU().Operation().(*data.ReadHoldingRegistersRequest).Count())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
+			assert.Equal(t, transport.ErrorCheck([]byte{}), txn.Checksum())
 		})
 	}
 }
@@ -228,7 +228,7 @@ func TestReadInputRegistersRequest(t *testing.T) {
 			assert.Equal(t, data.ReadInputRegisters, txn.PDU().FunctionCode())
 			assert.Equal(t, uint16(0x00), txn.PDU().Operation().(*data.ReadInputRegistersRequest).Offset())
 			assert.Equal(t, int(0x02), txn.PDU().Operation().(*data.ReadInputRegistersRequest).Count())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
+			assert.Equal(t, transport.ErrorCheck([]byte{}), txn.Checksum())
 		})
 	}
 }
@@ -269,7 +269,7 @@ func TestWriteSingleCoilRequest(t *testing.T) {
 			assert.Equal(t, data.WriteSingleCoil, txn.PDU().FunctionCode())
 			assert.Equal(t, uint16(0x0A), txn.PDU().Operation().(*data.WriteSingleCoilRequest).Offset())
 			assert.Equal(t, true, txn.PDU().Operation().(*data.WriteSingleCoilRequest).Value())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
+			assert.Equal(t, transport.ErrorCheck([]byte{}), txn.Checksum())
 		})
 	}
 }
@@ -310,7 +310,7 @@ func TestWriteSingleRegisterRequest(t *testing.T) {
 			assert.Equal(t, data.WriteSingleRegister, txn.PDU().FunctionCode())
 			assert.Equal(t, uint16(0x10), txn.PDU().Operation().(*data.WriteSingleRegisterRequest).Offset())
 			assert.Equal(t, uint16(0x03), txn.PDU().Operation().(*data.WriteSingleRegisterRequest).Value())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
+			assert.Equal(t, transport.ErrorCheck([]byte{}), txn.Checksum())
 		})
 	}
 }
@@ -351,7 +351,7 @@ func TestWriteMultipleCoilsRequest(t *testing.T) {
 			assert.Equal(t, data.WriteMultipleCoils, txn.PDU().FunctionCode())
 			assert.Equal(t, uint16(0x00), txn.PDU().Operation().(*data.WriteMultipleCoilsRequest).Offset())
 			assert.Equal(t, []bool{true, false, false, false, false, false, false, false, true, true, false, false, false, false, false, true, true, true, true, false, false, false, false, false}, txn.PDU().Operation().(*data.WriteMultipleCoilsRequest).Values())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
+			assert.Equal(t, transport.ErrorCheck([]byte{}), txn.Checksum())
 		})
 	}
 }
@@ -392,7 +392,7 @@ func TestWriteMultipleRegistersRequest(t *testing.T) {
 			assert.Equal(t, data.WriteMultipleRegisters, txn.PDU().FunctionCode())
 			assert.Equal(t, uint16(0x00), txn.PDU().Operation().(*data.WriteMultipleRegistersRequest).Offset())
 			assert.Equal(t, []uint16{0x0004, 0x0002}, txn.PDU().Operation().(*data.WriteMultipleRegistersRequest).Values())
-			assert.Equal(t, transport.ErrorCheck([]byte{0x00}), txn.Checksum())
+			assert.Equal(t, transport.ErrorCheck([]byte{}), txn.Checksum())
 		})
 	}
 }

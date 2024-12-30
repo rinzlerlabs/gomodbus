@@ -12,31 +12,35 @@ import (
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
+	"github.com/rinzlerlabs/gomodbus/transport/serial"
 	"go.uber.org/zap"
 )
 
 type modbusRTUTransport struct {
-	logger     *zap.Logger
-	mu         sync.Mutex
-	stream     io.ReadWriteCloser
-	reader     *bufio.Reader
-	serverAddr uint16
+	logger       *zap.Logger
+	mu           sync.Mutex
+	frameBuilder transport.FrameBuilder
+	stream       io.ReadWriteCloser
+	reader       *bufio.Reader
+	serverAddr   uint16
 }
 
 func NewModbusServerTransport(stream io.ReadWriteCloser, logger *zap.Logger, serverAddress uint16) transport.Transport {
 	return &modbusRTUTransport{
-		logger:     logger,
-		stream:     stream,
-		reader:     bufio.NewReader(stream),
-		serverAddr: serverAddress,
+		logger:       logger,
+		stream:       stream,
+		frameBuilder: serial.NewFrameBuilder(NewModbusApplicationDataUnit),
+		reader:       bufio.NewReader(stream),
+		serverAddr:   serverAddress,
 	}
 }
 
 func NewModbusClientTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
 	return &modbusRTUTransport{
-		logger: logger,
-		stream: stream,
-		reader: bufio.NewReader(stream),
+		logger:       logger,
+		stream:       stream,
+		frameBuilder: serial.NewFrameBuilder(NewModbusApplicationDataUnit),
+		reader:       bufio.NewReader(stream),
 	}
 }
 
@@ -262,12 +266,29 @@ func (t *modbusRTUTransport) ReadResponse(ctx context.Context, request transport
 	return ParseModbusResponseFrame(bytes[:read], 0)
 }
 
-func (t *modbusRTUTransport) WriteFrame(data transport.ApplicationDataUnit) error {
-	_, err := t.Write(data.Bytes())
+func (t *modbusRTUTransport) WriteRequestFrame(address uint16, pdu *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error) {
+	header := serial.NewHeader(address)
+	adu, err := t.frameBuilder.BuildResponseFrame(header, pdu)
+	if err != nil {
+		return nil, err
+	}
+	_, err = t.write(adu.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return adu, nil
+}
+
+func (t *modbusRTUTransport) WriteResponseFrame(header transport.Header, pdu *transport.ProtocolDataUnit) error {
+	adu, err := t.frameBuilder.BuildResponseFrame(header, pdu)
+	if err != nil {
+		return err
+	}
+	_, err = t.write(adu.Bytes())
 	return err
 }
 
-func (t *modbusRTUTransport) Write(p []byte) (int, error) {
+func (t *modbusRTUTransport) write(p []byte) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	n, err := t.stream.Write(p)

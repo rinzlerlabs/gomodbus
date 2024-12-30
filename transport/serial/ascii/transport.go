@@ -9,29 +9,33 @@ import (
 
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
+	"github.com/rinzlerlabs/gomodbus/transport/serial"
 	"go.uber.org/zap"
 )
 
 type modbusASCIITransport struct {
-	logger *zap.Logger
-	mu     sync.Mutex
-	stream io.ReadWriteCloser
-	reader *bufio.Reader
+	logger       *zap.Logger
+	mu           sync.Mutex
+	stream       io.ReadWriteCloser
+	reader       *bufio.Reader
+	frameBuilder transport.FrameBuilder
 }
 
 func NewModbusServerTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
 	return &modbusASCIITransport{
-		logger: logger,
-		stream: stream,
-		reader: bufio.NewReader(stream),
+		logger:       logger,
+		stream:       stream,
+		reader:       bufio.NewReader(stream),
+		frameBuilder: serial.NewFrameBuilder(NewModbusApplicationDataUnit),
 	}
 }
 
 func NewModbusClientTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
 	return &modbusASCIITransport{
-		logger: logger,
-		stream: stream,
-		reader: bufio.NewReader(stream),
+		logger:       logger,
+		stream:       stream,
+		reader:       bufio.NewReader(stream),
+		frameBuilder: serial.NewFrameBuilder(NewModbusApplicationDataUnit),
 	}
 }
 
@@ -64,8 +68,26 @@ func (t *modbusASCIITransport) ReadRequest(ctx context.Context) (transport.Appli
 	return ParseModbusRequestFrame(bytes)
 }
 
-func (t *modbusASCIITransport) WriteFrame(frame transport.ApplicationDataUnit) error {
-	_, err := t.Write([]byte(fmt.Sprintf(":%X\r\n", frame.Bytes())))
+func (t *modbusASCIITransport) WriteRequestFrame(address uint16, pdu *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error) {
+	header := serial.NewHeader(address)
+	adu, err := t.frameBuilder.BuildResponseFrame(header, pdu)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = t.Write([]byte(fmt.Sprintf(":%X\r\n", adu.Bytes())))
+	if err != nil {
+		return nil, err
+	}
+	return adu, nil
+}
+
+func (t *modbusASCIITransport) WriteResponseFrame(header transport.Header, pdu *transport.ProtocolDataUnit) error {
+	adu, err := t.frameBuilder.BuildResponseFrame(header, pdu)
+	if err != nil {
+		return err
+	}
+	_, err = t.Write([]byte(fmt.Sprintf(":%X\r\n", adu.Bytes())))
 	return err
 }
 
