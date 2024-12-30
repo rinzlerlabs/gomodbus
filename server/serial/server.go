@@ -120,12 +120,13 @@ func (s *modbusSerialServer) Stats() *server.ServerStats {
 }
 
 func (s *modbusSerialServer) run() {
+	s.logger.Debug("Starting Modbus Serial listener loop")
+
 	s.isRunning = true
 	s.wg.Add(1)
 	defer s.wg.Done()
 	defer func() { s.isRunning = false }()
 
-	s.logger.Debug("Starting Modbus RTU listener loop")
 	s.logger.Debug("Flushing serial port until we find a packet")
 	if err := s.transport.Flush(s.cancelCtx); err != nil {
 		return
@@ -152,24 +153,27 @@ func (s *modbusSerialServer) run() {
 				continue
 			}
 			s.stats.AddRequest(op)
-			err = s.handler.Handle(op)
+			resp, err := s.handler.Handle(op)
 			if err != nil {
 				s.stats.AddError(err)
 				s.logger.Error("Failed to handle request", zap.Error(err))
+			}
+			if err := s.transport.WriteResponseFrame(op.Header(), resp); err != nil {
+				s.stats.AddError(err)
+				s.logger.Error("Failed to write response", zap.Error(err))
 			}
 		}
 	}
 }
 
-func (s *modbusSerialServer) acceptAndValidateTransaction() (transport.ModbusTransaction, error) {
-	txn, err := s.transport.AcceptRequest(s.cancelCtx)
+func (s *modbusSerialServer) acceptAndValidateTransaction() (transport.ApplicationDataUnit, error) {
+	txn, err := s.transport.ReadRequest(s.cancelCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	if txn.Frame().Header().(transport.SerialHeader).Address() != s.address {
+	if txn.Header().(transport.SerialHeader).Address() != s.address {
 		return nil, common.ErrNotOurAddress
 	}
-
 	return txn, nil
 }

@@ -1,14 +1,24 @@
 package rtu
 
 import (
+	"context"
 	"io"
 	"testing"
 	"time"
 
+	"github.com/rinzlerlabs/gomodbus/client"
 	"github.com/rinzlerlabs/gomodbus/common"
+	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
+
+func newModbusClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) client.ModbusClient {
+	ctx := context.Background()
+	t := rtu.NewModbusClientTransport(stream, logger, responseTimeout)
+	return client.NewModbusClient(ctx, logger, t)
+}
 
 type testSerialPort struct {
 	readData  []byte
@@ -33,7 +43,7 @@ func (t *testSerialPort) Close() error {
 	return nil
 }
 
-func TestRTUReadCoils(t *testing.T) {
+func TestReadCoils(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        []byte
@@ -81,7 +91,7 @@ func TestRTUReadCoils(t *testing.T) {
 	}
 }
 
-func TestRTUReadDiscreteInputs(t *testing.T) {
+func TestReadDiscreteInputs(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        []byte
@@ -129,7 +139,7 @@ func TestRTUReadDiscreteInputs(t *testing.T) {
 	}
 }
 
-func TestRTUReadHoldingRegisters(t *testing.T) {
+func TestReadHoldingRegisters(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        []byte
@@ -177,7 +187,7 @@ func TestRTUReadHoldingRegisters(t *testing.T) {
 	}
 }
 
-func TestRTUReadInputRegisters(t *testing.T) {
+func TestReadInputRegisters(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        []byte
@@ -225,7 +235,7 @@ func TestRTUReadInputRegisters(t *testing.T) {
 	}
 }
 
-func TestRTUWriteSingleCoil(t *testing.T) {
+func TestWriteSingleCoil(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        []byte
@@ -278,7 +288,7 @@ func TestRTUWriteSingleCoil(t *testing.T) {
 	}
 }
 
-func TestRTUWriteSingleRegister(t *testing.T) {
+func TestWriteSingleRegister(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        []byte
@@ -331,7 +341,7 @@ func TestRTUWriteSingleRegister(t *testing.T) {
 	}
 }
 
-func TestRTUWriteMultipleCoils(t *testing.T) {
+func TestWriteMultipleCoils(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        []byte
@@ -378,7 +388,7 @@ func TestRTUWriteMultipleCoils(t *testing.T) {
 	}
 }
 
-func TestRTUWriteMultipleRegisters(t *testing.T) {
+func TestWriteMultipleRegisters(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        []byte

@@ -1,12 +1,11 @@
 package network
 
 import (
-	"context"
 	"fmt"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -49,11 +48,14 @@ func (header header) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
 }
 
 type modbusApplicationDataUnit struct {
-	header transport.TCPHeader
+	header transport.NetworkHeader
 	pdu    *transport.ProtocolDataUnit
 }
 
 func (m modbusApplicationDataUnit) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
+	encoder.AddString("ProtocolID", transport.EncodeToString(m.header.ProtocolID()))
+	encoder.AddString("TransactionID", transport.EncodeToString(m.header.TransactionID()))
+	encoder.AddString("UnitID", transport.EncodeToString([]byte{m.header.UnitID()}))
 	encoder.AddObject("PDU", m.pdu)
 	return nil
 }
@@ -67,7 +69,7 @@ func (m *modbusApplicationDataUnit) PDU() *transport.ProtocolDataUnit {
 }
 
 func (m *modbusApplicationDataUnit) Checksum() transport.ErrorCheck {
-	return transport.ErrorCheck{0x00}
+	return transport.ErrorCheck{}
 }
 
 func (m *modbusApplicationDataUnit) Bytes() []byte {
@@ -83,13 +85,15 @@ func (m *modbusApplicationDataUnit) Bytes() []byte {
 	return bytes
 }
 
-func NewModbusRequestFrame(packet []byte) (*transport.ModbusFrame, error) {
+func ParseModbusRequestFrame(packet []byte) (transport.ApplicationDataUnit, error) {
 	txId := packet[0:2]
 	protoId := packet[2:4]
-	// length := packet[4:6]
+	length := int(packet[4])<<8 | int(packet[5])
 	unitId := packet[6]
 	packet = packet[7:]
-	// TODO check length
+	if len(packet) != length {
+		return nil, common.ErrInvalidLength
+	}
 	functionCode := data.FunctionCode(packet[0])
 	op, err := data.ParseModbusRequestOperation(functionCode, packet[1:])
 	if err != nil {
@@ -100,22 +104,10 @@ func NewModbusRequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 		header: NewHeader(txId, protoId, unitId),
 		pdu:    pdu,
 	}
-	return &transport.ModbusFrame{
-		ApplicationDataUnit: adu,
-		ResponseCreator:     NewModbusFrame,
-	}, nil
+	return adu, nil
 }
 
-func NewModbusFrame(header transport.Header, response *transport.ProtocolDataUnit) *transport.ModbusFrame {
-	return &transport.ModbusFrame{
-		ApplicationDataUnit: &modbusApplicationDataUnit{
-			header: header.(transport.TCPHeader),
-			pdu:    response,
-		},
-	}
-}
-
-func NewModbusTCPResponseFrame(packet []byte, valueCount int) (*transport.ModbusFrame, error) {
+func ParseModbusServerResponseFrame(packet []byte, valueCount int) (transport.ApplicationDataUnit, error) {
 	txId := packet[0:2]
 	protoId := packet[2:4]
 	length := packet[4:6]
@@ -132,52 +124,22 @@ func NewModbusTCPResponseFrame(packet []byte, valueCount int) (*transport.Modbus
 		header: NewHeader(txId, protoId, unitId),
 		pdu:    pdu,
 	}
-	return &transport.ModbusFrame{
-		ApplicationDataUnit: adu,
-		ResponseCreator:     NewModbusFrame,
-	}, nil
+	return adu, nil
 }
 
-func NewModbusTransaction(frame *transport.ModbusFrame, t transport.Transport) transport.ModbusTransaction {
-	return &modbusTransaction{
-		frame:     frame,
-		transport: t.(*modbusTCPSocketTransport),
+func NewModbusApplicationDataUnit(header transport.Header, response *transport.ProtocolDataUnit) transport.ApplicationDataUnit {
+	return &modbusApplicationDataUnit{header: header.(transport.NetworkHeader), pdu: response}
+}
+
+func NewFrameBuilder() transport.FrameBuilder {
+	return &frameBuilder{}
+}
+
+type frameBuilder struct{}
+
+func (fb *frameBuilder) BuildResponseFrame(header transport.Header, response *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error) {
+	if networkHeader, ok := header.(transport.NetworkHeader); ok {
+		return NewModbusApplicationDataUnit(networkHeader, response), nil
 	}
-}
-
-type modbusTransaction struct {
-	frame     *transport.ModbusFrame
-	transport *modbusTCPSocketTransport
-}
-
-func (m *modbusTransaction) Read(ctx context.Context) (*transport.ModbusFrame, error) {
-	return m.frame, nil
-}
-
-func (m *modbusTransaction) Exchange(ctx context.Context) (*transport.ModbusFrame, error) {
-	err := m.transport.WriteFrame(m.frame)
-	if err != nil {
-		return nil, err
-	}
-	b, err := m.transport.readRawFrame(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	valueCount := 0
-	if countable, success := m.frame.PDU().Operation().(data.CountableOperation); success {
-		valueCount = countable.Count()
-	}
-
-	return NewModbusTCPResponseFrame(b, valueCount)
-}
-
-func (m *modbusTransaction) Write(pdu *transport.ProtocolDataUnit) error {
-	frame := m.frame.ResponseCreator(m.frame.Header(), pdu)
-	m.transport.logger.Info("Response", zap.Object("Frame", frame))
-	return m.transport.WriteFrame(frame)
-}
-
-func (m *modbusTransaction) Frame() *transport.ModbusFrame {
-	return m.frame
+	return nil, fmt.Errorf("invalid header")
 }

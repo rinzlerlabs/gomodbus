@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrInvalidPacket                      = errors.New("invalid packet")
 	ErrInvalidChecksum                    = errors.New("invalid checksum")
+	ErrInvalidLength                      = errors.New("invalid length")
 	ErrWrittenLengthDoesNotMatch          = errors.New("written length does not match")
 	ErrUnknownFunctionCode                = errors.New("unknown function code")
 	ErrShortWrite                         = errors.New("short write")

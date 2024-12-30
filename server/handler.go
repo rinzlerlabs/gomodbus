@@ -32,7 +32,7 @@ const (
 // TODO: Merge single and multiple requests into one.
 type RequestHandler interface {
 	// Handle handles a modbus transaction, this is used by the server to process incoming requests.
-	Handle(op transport.ModbusTransaction) error
+	Handle(op transport.ApplicationDataUnit) (*transport.ProtocolDataUnit, error)
 	// ReadCoils reads the status of coils in this device.
 	ReadCoils(request data.ModbusReadRequest) (response data.ModbusReadResponse[[]bool], err error)
 	// ReadDiscreteInputs reads the status of discrete inputs in this device.
@@ -93,52 +93,52 @@ func NewDefaultHandler(logger *zap.Logger, coilCount, discreteInputCount, holdin
 	}
 }
 
-func (h *DefaultHandler) Handle(txn transport.ModbusTransaction) error {
-	h.logger.Info("Request", zap.Object("Frame", txn.Frame()))
+func (h *DefaultHandler) Handle(adu transport.ApplicationDataUnit) (*transport.ProtocolDataUnit, error) {
+	h.logger.Info("Request", zap.Object("ADU", adu))
 	var result data.ModbusOperation
 	var err error
-	switch txn.Frame().PDU().FunctionCode() {
+	switch adu.PDU().FunctionCode() {
 	case data.ReadCoils:
 		// Read Coils
-		result, err = h.ReadCoils(txn.Frame().PDU().Operation().(data.ModbusReadRequest))
+		result, err = h.ReadCoils(adu.PDU().Operation().(data.ModbusReadRequest))
 	case data.ReadDiscreteInputs:
 		// Read Discrete Inputs
-		result, err = h.ReadDiscreteInputs(txn.Frame().PDU().Operation().(data.ModbusReadRequest))
+		result, err = h.ReadDiscreteInputs(adu.PDU().Operation().(data.ModbusReadRequest))
 	case data.ReadHoldingRegisters:
 		// Read Holding Registers
-		result, err = h.ReadHoldingRegisters(txn.Frame().PDU().Operation().(data.ModbusReadRequest))
+		result, err = h.ReadHoldingRegisters(adu.PDU().Operation().(data.ModbusReadRequest))
 	case data.ReadInputRegisters:
 		// Read Input Registers
-		result, err = h.ReadInputRegisters(txn.Frame().PDU().Operation().(data.ModbusReadRequest))
+		result, err = h.ReadInputRegisters(adu.PDU().Operation().(data.ModbusReadRequest))
 	case data.WriteSingleCoil:
 		// Write Single Coil
-		result, err = h.WriteSingleCoil(txn.Frame().PDU().Operation().(data.ModbusWriteSingleRequest[bool]))
+		result, err = h.WriteSingleCoil(adu.PDU().Operation().(data.ModbusWriteSingleRequest[bool]))
 	case data.WriteSingleRegister:
 		// Write Single Register
-		result, err = h.WriteSingleRegister(txn.Frame().PDU().Operation().(data.ModbusWriteSingleRequest[uint16]))
+		result, err = h.WriteSingleRegister(adu.PDU().Operation().(data.ModbusWriteSingleRequest[uint16]))
 	case data.WriteMultipleCoils:
 		// Write Multiple Coils
-		result, err = h.WriteMultipleCoils(txn.Frame().PDU().Operation().(data.ModbusWriteArrayRequest[[]bool]))
+		result, err = h.WriteMultipleCoils(adu.PDU().Operation().(data.ModbusWriteArrayRequest[[]bool]))
 	case data.WriteMultipleRegisters:
 		// Write Multiple Registers
-		result, err = h.WriteMultipleRegisters(txn.Frame().PDU().Operation().(data.ModbusWriteArrayRequest[[]uint16]))
+		result, err = h.WriteMultipleRegisters(adu.PDU().Operation().(data.ModbusWriteArrayRequest[[]uint16]))
 	default:
-		h.logger.Debug("Received packet with unknown function code", zap.Any("packet", txn))
-		result = data.NewModbusOperationException(txn.Frame().PDU().FunctionCode(), data.IllegalFunction)
+		h.logger.Debug("Received packet with unknown function code", zap.Any("packet", adu))
+		result = data.NewModbusOperationException(adu.PDU().FunctionCode(), data.IllegalFunction)
 	}
 	switch err {
 	case nil:
 		break
 	case common.ErrIllegalDataAddress:
 		h.logger.Error("Failed to handle request", zap.Error(err))
-		result = data.NewModbusOperationException(txn.Frame().PDU().FunctionCode(), data.IllegalDataAddress)
+		result = data.NewModbusOperationException(adu.PDU().FunctionCode(), data.IllegalDataAddress)
 	default:
 		h.logger.Error("Failed to handle request", zap.Error(err))
-		result = data.NewModbusOperationException(txn.Frame().PDU().FunctionCode(), data.ServerDeviceFailure)
+		result = data.NewModbusOperationException(adu.PDU().FunctionCode(), data.ServerDeviceFailure)
 	}
 	pdu := transport.NewProtocolDataUnit(result)
 	h.logger.Debug("Response", zap.Object("PDU", pdu))
-	return txn.Write(pdu)
+	return pdu, nil
 }
 
 func getRange(offset uint16, count int) (uint16, uint16) {

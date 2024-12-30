@@ -1,14 +1,22 @@
 package rtu
 
 import (
+	"io"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/rinzlerlabs/gomodbus/server"
+	"github.com/rinzlerlabs/gomodbus/server/serial"
+	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
+
+func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {
+	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, rtu.NewModbusServerTransport(stream, logger, serverAddress))
+}
 
 type testSerialPort struct {
 	firstReadDone bool
@@ -22,7 +30,7 @@ func (t *testSerialPort) Read(b []byte) (n int, err error) {
 	defer t.mu.Unlock()
 	if !t.firstReadDone {
 		time.Sleep(100 * time.Millisecond)
-		b = []byte{0x00}
+		copy(b, []byte{0x00})
 		t.firstReadDone = true
 		return 1, nil
 	}
@@ -484,24 +492,4 @@ func TestWriteMultipleRegisters(t *testing.T) {
 			assert.Equal(t, tt.response, port.writeData)
 		})
 	}
-}
-
-func TestCreateCrc(t *testing.T) {
-	bytes := []byte{0x04, 0x06, 0x00, 0x10, 0x00, 0x04}
-	t.Logf("CRC: %x", calculateCrc(bytes))
-}
-
-func calculateCrc(data []byte) uint16 {
-	var crc uint16 = 0xFFFF
-	for _, b := range data {
-		crc ^= uint16(b)
-		for i := 0; i < 8; i++ {
-			if (crc & 1) != 0 {
-				crc = (crc >> 1) ^ 0xA001
-			} else {
-				crc >>= 1
-			}
-		}
-	}
-	return crc
 }

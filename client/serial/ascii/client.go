@@ -2,8 +2,7 @@ package ascii
 
 import (
 	"context"
-	"io"
-	"time"
+	"net/url"
 
 	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/client"
@@ -12,23 +11,32 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewModbusClient(logger *zap.Logger, settings *sp.Config, responseTimeout time.Duration) (client.ModbusClient, error) {
-	return NewModbusClientWithContext(context.Background(), logger, settings, responseTimeout)
+func NewModbusClient(logger *zap.Logger, uri string) (client.ModbusClient, error) {
+	return NewModbusClientWithContext(context.Background(), logger, uri)
 }
 
-func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, settings *sp.Config, responseTimeout time.Duration) (client.ModbusClient, error) {
-	port, err := sp.Open(settings)
+func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, uri string) (client.ModbusClient, error) {
+	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
-	transport := ascii.NewModbusTransport(port, logger)
-	requestCreator := serial.NewSerialRequestCreator(ascii.NewModbusTransaction, ascii.NewModbusFrame)
-	return client.NewModbusClient(ctx, logger, transport, requestCreator, responseTimeout), nil
+	settings, err := serial.NewClientSettingsFromURI(u)
+	if err != nil {
+		return nil, err
+	}
+	return NewModbusClientFromSettingsWithContext(ctx, logger, settings)
 }
 
-func newModbusClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) client.ModbusClient {
-	ctx := context.Background()
-	transport := ascii.NewModbusTransport(stream, logger)
-	requestCreator := serial.NewSerialRequestCreator(ascii.NewModbusTransaction, ascii.NewModbusFrame)
-	return client.NewModbusClient(ctx, logger, transport, requestCreator, responseTimeout)
+func NewModbusClientFromSettings(logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
+	return NewModbusClientFromSettingsWithContext(context.Background(), logger, settings)
+}
+
+func NewModbusClientFromSettingsWithContext(ctx context.Context, logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
+	config := settings.SerialSettings().ToPortConfig()
+	port, err := sp.Open(config)
+	if err != nil {
+		return nil, err
+	}
+	t := ascii.NewModbusClientTransport(port, logger, settings.ResponseTimeout())
+	return client.NewModbusClient(ctx, logger, t), nil
 }

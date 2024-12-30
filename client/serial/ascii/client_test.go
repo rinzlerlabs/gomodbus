@@ -1,15 +1,24 @@
 package ascii
 
 import (
+	"context"
 	"io"
-	"net/url"
 	"testing"
 	"time"
 
+	"github.com/rinzlerlabs/gomodbus/client"
 	"github.com/rinzlerlabs/gomodbus/common"
+	"github.com/rinzlerlabs/gomodbus/transport/serial/ascii"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
+
+func newModbusClient(logger *zap.Logger, stream io.ReadWriteCloser, responseTimeout time.Duration) client.ModbusClient {
+	ctx := context.Background()
+	t := ascii.NewModbusClientTransport(stream, logger, responseTimeout)
+	return client.NewModbusClient(ctx, logger, t)
+}
 
 type testSerialPort struct {
 	readData  []byte
@@ -34,7 +43,7 @@ func (t *testSerialPort) Close() error {
 	return nil
 }
 
-func TestASCIIReadCoils(t *testing.T) {
+func TestReadCoils(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        string
@@ -82,7 +91,7 @@ func TestASCIIReadCoils(t *testing.T) {
 	}
 }
 
-func TestASCIIReadDiscreteInputs(t *testing.T) {
+func TestReadDiscreteInputs(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        string
@@ -130,7 +139,7 @@ func TestASCIIReadDiscreteInputs(t *testing.T) {
 	}
 }
 
-func TestASCIIReadHoldingRegisters(t *testing.T) {
+func TestReadHoldingRegisters(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        string
@@ -178,7 +187,7 @@ func TestASCIIReadHoldingRegisters(t *testing.T) {
 	}
 }
 
-func TestASCIIReadInputRegisters(t *testing.T) {
+func TestReadInputRegisters(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        string
@@ -226,7 +235,7 @@ func TestASCIIReadInputRegisters(t *testing.T) {
 	}
 }
 
-func TestASCIIWriteSingleCoil(t *testing.T) {
+func TestWriteSingleCoil(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        string
@@ -279,7 +288,7 @@ func TestASCIIWriteSingleCoil(t *testing.T) {
 	}
 }
 
-func TestASCIIWriteSingleRegister(t *testing.T) {
+func TestWriteSingleRegister(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        string
@@ -332,7 +341,7 @@ func TestASCIIWriteSingleRegister(t *testing.T) {
 	}
 }
 
-func TestASCIIWriteMultipleCoils(t *testing.T) {
+func TestWriteMultipleCoils(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        string
@@ -379,7 +388,7 @@ func TestASCIIWriteMultipleCoils(t *testing.T) {
 	}
 }
 
-func TestASCIIWriteMultipleRegisters(t *testing.T) {
+func TestWriteMultipleRegisters(t *testing.T) {
 	tests := []struct {
 		name            string
 		toServer        string
@@ -424,12 +433,4 @@ func TestASCIIWriteMultipleRegisters(t *testing.T) {
 			assert.Equal(t, tt.toServer, string(port.writeData))
 		})
 	}
-}
-
-func TestFoo(t *testing.T) {
-	u, e := url.Parse("rtu:///dev/ttyUSB0")
-	assert.NoError(t, e)
-	assert.NotNil(t, u)
-	assert.Equal(t, "rtu", u.Scheme)
-	assert.Equal(t, "/dev/ttyUSB0", u.Path)
 }

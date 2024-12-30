@@ -2,7 +2,6 @@ package ascii
 
 import (
 	"errors"
-	"io"
 
 	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/server"
@@ -28,17 +27,8 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverA
 			logger.Error("Failed to open serial port", zap.Error(err))
 			return nil, err
 		}
-		return ascii.NewModbusTransport(port, logger), nil
+		return ascii.NewModbusServerTransport(port, logger), nil
 	}
 
 	return serial.NewModbusSerialServerWithCreator(logger, settings, serverAddress, handler, transportCreator)
-}
-
-// newModbusServerWithHandler creates a new Modbus ASCII server with a io.ReadWriter stream instead of an explicit port, for testing purposes, and a RequestHandler.
-func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {
-	if handler == nil {
-		return nil, errors.New("handler is required")
-	}
-
-	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, ascii.NewModbusTransport(stream, logger))
 }

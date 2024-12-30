@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/rinzlerlabs/gomodbus/server"
+	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/rinzlerlabs/gomodbus/transport/network"
 	"go.uber.org/zap"
 )
@@ -25,42 +26,28 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &modbusServer{
-		logger:    logger,
-		handler:   handler,
-		cancelCtx: ctx,
-		cancel:    cancel,
-		stats:     server.NewServerStats(),
-		endpoint:  endpoint,
-	}, nil
-}
-
-func newModbusServerWithHandler(logger *zap.Logger, listener net.Listener, handler server.RequestHandler) (server.ModbusServer, error) {
-	if handler == nil {
-		return nil, errors.New("handler is required")
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-
-	return &modbusServer{
-		logger:    logger,
-		handler:   handler,
-		cancelCtx: ctx,
-		cancel:    cancel,
-		listener:  listener,
-		stats:     server.NewServerStats(),
+		logger:       logger,
+		handler:      handler,
+		cancelCtx:    ctx,
+		cancel:       cancel,
+		stats:        server.NewServerStats(),
+		frameBuilder: nil,
+		endpoint:     endpoint,
 	}, nil
 }
 
 type modbusServer struct {
-	handler   server.RequestHandler
-	cancelCtx context.Context
-	cancel    context.CancelFunc
-	logger    *zap.Logger
-	isRunning bool
-	endpoint  string
-	listener  net.Listener
-	stats     *server.ServerStats
-	wg        sync.WaitGroup
-	mu        sync.Mutex
+	handler      server.RequestHandler
+	cancelCtx    context.Context
+	cancel       context.CancelFunc
+	logger       *zap.Logger
+	isRunning    bool
+	endpoint     string
+	listener     net.Listener
+	frameBuilder transport.FrameBuilder
+	stats        *server.ServerStats
+	wg           sync.WaitGroup
+	mu           sync.Mutex
 }
 
 func (s *modbusServer) IsRunning() bool {
@@ -142,7 +129,7 @@ func (s *modbusServer) handleClient(conn net.Conn) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 	defer conn.Close()
-	t := network.NewModbusTransport(conn, s.logger)
+	t := network.NewModbusServerTransport(conn, s.logger)
 	defer t.Close()
 	for {
 		select {
@@ -150,7 +137,7 @@ func (s *modbusServer) handleClient(conn net.Conn) {
 			return
 		default:
 		}
-		transaction, err := t.AcceptRequest(s.cancelCtx)
+		op, err := t.ReadRequest(s.cancelCtx)
 		if err == io.EOF {
 			s.logger.Info("Client disconnected")
 			err := t.Close()
@@ -163,11 +150,15 @@ func (s *modbusServer) handleClient(conn net.Conn) {
 			s.logger.Error("Failed to accept request", zap.Error(err))
 			return
 		}
-		s.stats.AddRequest(transaction)
-		err = s.handler.Handle(transaction)
+		s.stats.AddRequest(op)
+		resp, err := s.handler.Handle(op)
 		if err != nil {
 			s.stats.AddError(err)
 			s.logger.Error("Failed to handle request", zap.Error(err))
+		}
+		if err := t.WriteResponseFrame(op.Header(), resp); err != nil {
+			s.stats.AddError(err)
+			s.logger.Error("Failed to write response", zap.Error(err))
 		}
 	}
 }

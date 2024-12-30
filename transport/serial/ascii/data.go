@@ -1,50 +1,25 @@
 package ascii
 
 import (
-	"context"
 	"encoding/hex"
+	"errors"
 
-	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/rinzlerlabs/gomodbus/transport/serial"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
-type modbusApplicationDataUnit struct {
-	header   transport.SerialHeader
-	pdu      *transport.ProtocolDataUnit
-	checksum transport.ErrorCheck
-}
-
-func (m modbusApplicationDataUnit) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
-	encoder.AddUint16("Address", uint16(m.header.Bytes()[0]))
-	encoder.AddObject("PDU", m.pdu)
-	return nil
-}
-
-func (m *modbusApplicationDataUnit) Header() transport.Header {
-	return m.header
-}
-
-func (m *modbusApplicationDataUnit) PDU() *transport.ProtocolDataUnit {
-	return m.pdu
-}
-
-func (m *modbusApplicationDataUnit) validateChecksum() error {
-	for i, b := range m.Checksum() {
-		if m.checksum[i] != b {
-			return common.ErrInvalidChecksum
-		}
+func NewModbusApplicationDataUnit(header transport.Header, pdu *transport.ProtocolDataUnit) (transport.ApplicationDataUnit, error) {
+	if serialHeader, ok := header.(transport.SerialHeader); ok {
+		return serial.NewResponseModbusApplicationDataUnit(serialHeader, pdu, checksummer), nil
 	}
-	return nil
+	return nil, errors.New("invalid header")
 }
 
-func (m *modbusApplicationDataUnit) Checksum() transport.ErrorCheck {
+func checksummer(m transport.ApplicationDataUnit) transport.ErrorCheck {
 	var lrc byte
 	// address first
-	lrc += byte(m.header.Bytes()[0])
+	lrc += byte(m.Header().Bytes()[0])
 	// then the data
 	// TODO: Avoid the byte array allocation
 	bytes := m.PDU().Bytes()
@@ -56,11 +31,7 @@ func (m *modbusApplicationDataUnit) Checksum() transport.ErrorCheck {
 	return []byte{lrc}
 }
 
-func (m *modbusApplicationDataUnit) Bytes() []byte {
-	return append(append(m.header.Bytes(), m.pdu.Bytes()...), m.Checksum()...)
-}
-
-func NewModbusRequestFrame(packet []byte) (*transport.ModbusFrame, error) {
+func ParseModbusRequestFrame(packet []byte) (transport.ApplicationDataUnit, error) {
 	// parse the ascii to bytes
 	packet = packet[1 : len(packet)-2] // remove the colon and the trailing CR LF
 	packet, err := hex.DecodeString(string(packet))
@@ -73,27 +44,10 @@ func NewModbusRequestFrame(packet []byte) (*transport.ModbusFrame, error) {
 		return nil, err
 	}
 	pdu := transport.NewProtocolDataUnit(op)
-	adu := &modbusApplicationDataUnit{
-		header:   serial.NewHeader(uint16(packet[0])),
-		pdu:      pdu,
-		checksum: packet[len(packet)-1:],
-	}
-	if adu.validateChecksum() != nil {
-		return nil, common.ErrInvalidChecksum
-	}
-	return &transport.ModbusFrame{
-		ApplicationDataUnit: adu,
-		ResponseCreator:     NewModbusFrame,
-	}, nil
+	return serial.NewModbusApplicationDataUnit(serial.NewHeader(uint16(packet[0])), pdu, packet[len(packet)-1:], checksummer)
 }
 
-func NewModbusFrame(header transport.Header, response *transport.ProtocolDataUnit) *transport.ModbusFrame {
-	return &transport.ModbusFrame{
-		ApplicationDataUnit: &modbusApplicationDataUnit{header: header.(transport.SerialHeader), pdu: response},
-	}
-}
-
-func NewModbusASCIIResponseFrame(packet []byte, valueCount int) (*transport.ModbusFrame, error) {
+func ParseModbusResponseFrame(packet []byte, valueCount int) (transport.ApplicationDataUnit, error) {
 	// parse the ascii to bytes
 	packet = packet[1 : len(packet)-2] // remove the colon and the trailing CR LF
 	packet, err := hex.DecodeString(string(packet))
@@ -106,63 +60,13 @@ func NewModbusASCIIResponseFrame(packet []byte, valueCount int) (*transport.Modb
 		return nil, err
 	}
 	pdu := transport.NewProtocolDataUnit(op)
-	adu := &modbusApplicationDataUnit{
-		header:   serial.NewHeader(uint16(packet[0])),
-		pdu:      pdu,
-		checksum: packet[len(packet)-1:],
+	adu, err := serial.NewModbusApplicationDataUnit(serial.NewHeader(uint16(packet[0])), pdu, packet[len(packet)-1:], checksummer)
+	if err != nil {
+		return nil, err
 	}
-	if adu.validateChecksum() != nil {
-		return nil, common.ErrInvalidChecksum
-	}
+	// check if the pdu is an exception returned by the server
 	if pdu.FunctionCode().IsException() {
 		return nil, pdu.Operation().(*data.ModbusOperationException).Error()
 	}
-	return &transport.ModbusFrame{
-		ApplicationDataUnit: adu,
-		ResponseCreator:     NewModbusFrame,
-	}, nil
-}
-
-func NewModbusTransaction(frame *transport.ModbusFrame, t transport.Transport) transport.ModbusTransaction {
-	return &modbusTransaction{
-		frame:     frame,
-		transport: t.(*modbusASCIITransport),
-	}
-}
-
-type modbusTransaction struct {
-	frame     *transport.ModbusFrame
-	transport *modbusASCIITransport
-}
-
-func (m *modbusTransaction) Read(ctx context.Context) (*transport.ModbusFrame, error) {
-	return m.frame, nil
-}
-
-func (m *modbusTransaction) Exchange(ctx context.Context) (*transport.ModbusFrame, error) {
-	err := m.transport.WriteFrame(m.frame)
-	if err != nil {
-		return nil, err
-	}
-	b, err := m.transport.readRawFrame(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	valueCount := 0
-	if countable, success := m.frame.PDU().Operation().(data.CountableOperation); success {
-		valueCount = countable.Count()
-	}
-
-	return NewModbusASCIIResponseFrame(b, valueCount)
-}
-
-func (m *modbusTransaction) Write(pdu *transport.ProtocolDataUnit) error {
-	frame := m.frame.ResponseCreator(m.frame.Header(), pdu)
-	m.transport.logger.Info("Response", zap.Object("Frame", frame))
-	return m.transport.WriteFrame(frame)
-}
-
-func (m *modbusTransaction) Frame() *transport.ModbusFrame {
-	return m.frame
+	return adu, nil
 }
