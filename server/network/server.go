@@ -84,7 +84,7 @@ func (s *modbusServer) Start() error {
 		s.listener = listener
 	}
 
-	s.logger.Info("Starting Modbus TCP server")
+	s.logger.Info("Starting Modbus TCP server", zap.String("endpoint", s.settings.Endpoint.Host), zap.String("port", s.settings.Endpoint.Port()))
 	s.isRunning = true
 	go s.run()
 	return nil
@@ -110,6 +110,7 @@ func (s *modbusServer) Stats() *server.ServerStats {
 }
 
 func (s *modbusServer) run() {
+	s.logger.Info("Modbus TCP server started")
 	for {
 		select {
 		case <-s.cancelCtx.Done():
@@ -123,6 +124,7 @@ func (s *modbusServer) run() {
 				s.logger.Error("Failed to accept connection", zap.Error(err))
 				continue
 			}
+			s.logger.Info("Client connected", zap.String("remote", conn.RemoteAddr().String()))
 			go s.handleClient(conn)
 		}
 	}
@@ -151,7 +153,7 @@ func (s *modbusServer) handleClient(conn net.Conn) {
 		}
 		if err != nil {
 			s.logger.Error("Failed to accept request", zap.Error(err))
-			return
+			continue
 		}
 		s.stats.AddRequest(op)
 		resp, err := s.handler.Handle(op)

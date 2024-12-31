@@ -13,7 +13,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	server, err := network.NewModbusServer(logger, "tcp://:502")
+	server, err := network.NewModbusServer(logger, "tcp://:8502")
 	if err != nil {
 		panic(err)
 	}

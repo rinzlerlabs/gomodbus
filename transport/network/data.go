@@ -77,21 +77,25 @@ func (m *modbusApplicationDataUnit) Bytes() []byte {
 	headerBytes := m.Header().Bytes()
 	bytes = append(bytes, headerBytes[:4]...)
 	pduBytes := m.pdu.Bytes()
-	length := uint16(len(pduBytes))
+	length := uint16(len(pduBytes)) + 1 //We need to account for the unitId here
 	bytes = append(bytes, byte(length>>8), byte(length&0xFF))
 	bytes = append(bytes, headerBytes[4:]...)
 	bytes = append(bytes, pduBytes...)
-
+	if len(bytes) != len(headerBytes)+len(pduBytes)+2 {
+		panic("Invalid length")
+	}
 	return bytes
 }
 
 func ParseModbusRequestFrame(packet []byte) (transport.ApplicationDataUnit, error) {
 	txId := packet[0:2]
 	protoId := packet[2:4]
-	length := int(packet[4])<<8 | int(packet[5])
+	expectedLength := int(packet[4])<<8 | int(packet[5])
 	unitId := packet[6]
 	packet = packet[7:]
-	if len(packet) != length {
+
+	// We have to add 1 because the unitId is included in the length
+	if len(packet)+1 != expectedLength {
 		return nil, common.ErrInvalidLength
 	}
 	functionCode := data.FunctionCode(packet[0])

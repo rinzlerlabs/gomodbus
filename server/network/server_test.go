@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/rinzlerlabs/gomodbus/server"
+	settings "github.com/rinzlerlabs/gomodbus/settings/network"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -23,14 +25,23 @@ func newModbusServerWithHandler(logger *zap.Logger, listener net.Listener, handl
 		return nil, errors.New("handler is required")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-
+	url, err := url.Parse("tcp://localhost:502")
+	if err != nil {
+		return nil, err
+	}
 	return &modbusServer{
 		logger:    logger,
 		handler:   handler,
 		cancelCtx: ctx,
 		cancel:    cancel,
 		listener:  listener,
-		stats:     server.NewServerStats(),
+		settings: &settings.ServerSettings{
+			NetworkSettings: settings.NetworkSettings{
+				Endpoint:  url,
+				KeepAlive: 30 * time.Second,
+			},
+		},
+		stats: server.NewServerStats(),
 	}, nil
 }
 
@@ -158,7 +169,7 @@ func TestNilHandlerReturnsError(t *testing.T) {
 func TestAcceptRequest(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	listener := &testListener{
-		readData: [][]byte{[]byte("0002000000050101000A000D")},
+		readData: [][]byte{[]byte("0002000000060101000A000D")},
 	}
 	s, err := newModbusServerWithHandler(logger, listener, server.NewDefaultHandler(logger, 1024, 1024, 1024, 1024))
 	assert.NoError(t, err)
@@ -173,7 +184,7 @@ func TestAcceptRequest(t *testing.T) {
 
 	adu := listener.writeData
 
-	assert.Equal(t, "0002000000040101020000", strings.ToUpper(hex.EncodeToString(adu)))
+	assert.Equal(t, "0002000000050101020000", strings.ToUpper(hex.EncodeToString(adu)))
 }
 
 func TestReadCoils(t *testing.T) {
@@ -185,8 +196,8 @@ func TestReadCoils(t *testing.T) {
 	}{
 		{
 			name:     "Valid",
-			request:  "0002000000050101000A000D",
-			response: "0002000000040101020A11",
+			request:  "0002000000060101000A000D",
+			response: "0002000000050101020A11",
 			coils:    []bool{true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, false, false, false, true, false, false, false, true, true, true, true},
 		},
 	}
@@ -226,9 +237,9 @@ func TestReadDiscreteInputs(t *testing.T) {
 	}{
 		{
 			name:     "Valid",
-			request:  "0002000000050102000A000D",
+			request:  "0002000000060102000A000D",
 			inputs:   []bool{true, false, false, false, false, false, false, false, false, false, false, true, false, true, false, false, false, false, true, false, false, false, true, true, true, true},
-			response: "0002000000040102020A11",
+			response: "0002000000050102020A11",
 		},
 	}
 
@@ -267,9 +278,9 @@ func TestReadHoldingRegisters(t *testing.T) {
 	}{
 		{
 			name:      "Valid",
-			request:   "000200000005010300000002",
+			request:   "000200000006010300000002",
 			registers: []uint16{0x0006, 0x0005, 0x0004, 0x0003, 0x0002, 0x0001, 0x0000},
-			response:  "00020000000601030400060005",
+			response:  "00020000000701030400060005",
 		},
 	}
 
@@ -308,8 +319,8 @@ func TestReadInputRegisters(t *testing.T) {
 	}{
 		{
 			name:      "Valid",
-			request:   "000200000005010400000002",
-			response:  "00020000000601040400060005",
+			request:   "000200000006010400000002",
+			response:  "00020000000701040400060005",
 			registers: []uint16{0x0006, 0x0005, 0x0004, 0x0003, 0x0002, 0x0001, 0x0000},
 		},
 	}
@@ -350,8 +361,8 @@ func TestWriteSingleCoil(t *testing.T) {
 	}{
 		{
 			name:      "Valid",
-			request:   "0002000000050105000AFF00",
-			response:  "0002000000050105000AFF00",
+			request:   "0002000000060105000AFF00",
+			response:  "0002000000060105000AFF00",
 			coilIndex: 10,
 			coilValue: true,
 		},
@@ -393,8 +404,8 @@ func TestWriteSingleRegister(t *testing.T) {
 	}{
 		{
 			name:          "Valid",
-			request:       "000200000005010600100003",
-			response:      "000200000005010600100003",
+			request:       "000200000006010600100003",
+			response:      "000200000006010600100003",
 			registerIndex: 0x10,
 			registerValue: 0x0003,
 		},
@@ -435,8 +446,8 @@ func TestWriteMultipleCoils(t *testing.T) {
 	}{
 		{
 			name:              "Valid",
-			request:           "000200000009010F0000001803018307",
-			response:          "000200000005010F00000018",
+			request:           "00020000000A010F0000001803018307",
+			response:          "000200000006010F00000018",
 			expectedRegisters: []bool{true, false, false, false, false, false, false, false, true, true, false, false, false, false, false, true, true, true, true, false, false, false, false, false},
 		},
 	}
@@ -476,8 +487,8 @@ func TestWriteMultipleRegisters(t *testing.T) {
 	}{
 		{
 			name:              "Valid",
-			request:           "00020000000A0110000000020400040002",
-			response:          "000200000005011000000002",
+			request:           "00020000000B0110000000020400040002",
+			response:          "000200000006011000000002",
 			expectedRegisters: []uint16{0x0004, 0x0002},
 		},
 	}

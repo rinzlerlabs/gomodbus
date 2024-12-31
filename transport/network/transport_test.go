@@ -55,7 +55,7 @@ func TestAcceptRequest(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := context.Background()
 	port := &testConnection{
-		readData: []byte{0x00, 0x02, 0x00, 0x00, 0x00, 0x05, 0x01, 0x01, 0x00, 0x0A, 0x00, 0x0D},
+		readData: []byte{0x00, 0x02, 0x00, 0x00, 0x00, 0x06, 0x01, 0x01, 0x00, 0x0A, 0x00, 0x0D},
 	}
 	tp := NewModbusServerTransport(port, logger)
 	defer tp.Close()
@@ -79,7 +79,7 @@ func TestReadCoilsRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "0002000000050101000A000D",
+			request: "0002000000060101000A000D",
 		},
 		{
 			name:      "InvalidLength",
@@ -126,7 +126,7 @@ func TestReadDiscreteInputsRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "0002000000050102000A000D",
+			request: "0002000000060102000A000D",
 		},
 		{
 			name:      "InvalidLength",
@@ -173,7 +173,7 @@ func TestReadHoldingRegistersRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "000200000005010300000002",
+			request: "000200000006010300000002",
 		},
 		{
 			name:      "InvalidLength",
@@ -220,7 +220,7 @@ func TestReadInputRegistersRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "000200000005010400000002",
+			request: "000200000006010400000002",
 		},
 		{
 			name:      "InvalidLength",
@@ -267,7 +267,7 @@ func TestWriteSingleCoilRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "0002000000050105000AFF00",
+			request: "0002000000060105000AFF00",
 		},
 		{
 			name:      "InvalidLength",
@@ -314,7 +314,7 @@ func TestWriteSingleRegisterRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "000200000005010600100003",
+			request: "000200000006010600100003",
 		},
 		{
 			name:      "InvalidLength",
@@ -361,7 +361,7 @@ func TestWriteMultipleCoilsRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "000200000009010F0000001803018307",
+			request: "00020000000A010F0000001803018307",
 		},
 		{
 			name:      "InvalidLength",
@@ -408,11 +408,11 @@ func TestWriteMultipleRegistersRequest(t *testing.T) {
 	}{
 		{
 			name:    "Valid",
-			request: "00020000000A0110000000020400040002",
+			request: "00020000000B0110000000020400040002",
 		},
 		{
 			name:      "InvalidLength",
-			request:   "00020000000B0110000000020400040002",
+			request:   "00020000000C0110000000020400040002",
 			readError: common.ErrInvalidLength,
 		},
 	}
