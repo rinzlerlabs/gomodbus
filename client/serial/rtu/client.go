@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewModbusClientFromURI(logger *zap.Logger, uri string) (client.ModbusClient, error) {
-	return NewModbusClientFromUriWithContext(context.Background(), logger, uri)
+func NewModbusClient(logger *zap.Logger, uri string) (client.ModbusClient, error) {
+	return NewModbusClientWithContext(context.Background(), logger, uri)
 }
 
-func NewModbusClientFromUriWithContext(ctx context.Context, logger *zap.Logger, uri string) (client.ModbusClient, error) {
+func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, uri string) (client.ModbusClient, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
@@ -24,14 +24,14 @@ func NewModbusClientFromUriWithContext(ctx context.Context, logger *zap.Logger, 
 	if err != nil {
 		return nil, err
 	}
-	return NewModbusClientWithContext(ctx, logger, settings)
+	return NewModbusClientFromSettingsWithContext(ctx, logger, settings)
 }
 
-func NewModbusClient(logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
-	return NewModbusClientWithContext(context.Background(), logger, settings)
+func NewModbusClientFromSettings(logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
+	return NewModbusClientFromSettingsWithContext(context.Background(), logger, settings)
 }
 
-func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
+func NewModbusClientFromSettingsWithContext(ctx context.Context, logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
 	config := settings.SerialSettings().ToPortConfig()
 	port, err := sp.Open(config)
 	if err != nil {
