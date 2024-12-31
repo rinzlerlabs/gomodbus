@@ -15,7 +15,7 @@ import (
 func main() {
 	// We're using the "Production" logger here, which means INFO messages and above.
 	// The RTU server can be very chatty because partial messages are very common.
-	logger, err := zap.NewProduction()
+	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}

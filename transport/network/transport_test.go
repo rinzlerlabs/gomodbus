@@ -58,6 +58,7 @@ func TestAcceptRequest(t *testing.T) {
 		readData: []byte{0x00, 0x02, 0x00, 0x00, 0x00, 0x05, 0x01, 0x01, 0x00, 0x0A, 0x00, 0x0D},
 	}
 	tp := NewModbusServerTransport(port, logger)
+	defer tp.Close()
 	txn, err := tp.ReadRequest(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, txn)
@@ -96,6 +97,7 @@ func TestReadCoilsRequest(t *testing.T) {
 				readData: d,
 			}
 			tp := NewModbusServerTransport(port, logger)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -142,6 +144,7 @@ func TestReadDiscreteInputsRequest(t *testing.T) {
 				readData: d,
 			}
 			tp := NewModbusServerTransport(port, logger)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -188,6 +191,7 @@ func TestReadHoldingRegistersRequest(t *testing.T) {
 				readData: d,
 			}
 			tp := NewModbusServerTransport(port, logger)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -234,6 +238,7 @@ func TestReadInputRegistersRequest(t *testing.T) {
 				readData: d,
 			}
 			tp := NewModbusServerTransport(port, logger)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -280,6 +285,7 @@ func TestWriteSingleCoilRequest(t *testing.T) {
 				readData: d,
 			}
 			tp := NewModbusServerTransport(port, logger)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -326,6 +332,7 @@ func TestWriteSingleRegisterRequest(t *testing.T) {
 				readData: d,
 			}
 			tp := NewModbusServerTransport(port, logger)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -372,6 +379,7 @@ func TestWriteMultipleCoilsRequest(t *testing.T) {
 				readData: d,
 			}
 			tp := NewModbusServerTransport(port, logger)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -418,6 +426,7 @@ func TestWriteMultipleRegistersRequest(t *testing.T) {
 				readData: d,
 			}
 			tp := NewModbusServerTransport(port, logger)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)

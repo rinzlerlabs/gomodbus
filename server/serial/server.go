@@ -148,8 +148,11 @@ func (s *modbusSerialServer) run() {
 			} else if err == common.ErrUnsupportedFunctionCode {
 				s.logger.Debug("Received request with unsupported function code, this is likely a timing error")
 				continue
+			} else if err == common.ErrInvalidChecksum {
+				s.logger.Debug("Received request with invalid checksum", zap.Error(err))
+				continue
 			} else if err != nil {
-				// s.logger.Error("Failed to accept request", zap.Error(err))
+				s.logger.Error("Failed to accept request", zap.Error(err))
 				continue
 			}
 			s.stats.AddRequest(op)
@@ -169,7 +172,7 @@ func (s *modbusSerialServer) run() {
 func (s *modbusSerialServer) acceptAndValidateTransaction() (transport.ApplicationDataUnit, error) {
 	txn, err := s.transport.ReadRequest(s.cancelCtx)
 	if err != nil {
-		return nil, err
+		return txn, err
 	}
 
 	if txn.Header().(transport.SerialHeader).Address() != s.address {

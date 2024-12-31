@@ -44,6 +44,7 @@ func TestReadRequest(t *testing.T) {
 		readData: []byte{0x04, 0x01, 0x00, 0x0A, 0x00, 0x0D, 0xDD, 0x98},
 	}
 	tp := NewModbusServerTransport(port, logger, 0x04)
+	defer tp.Close()
 	txn, err := tp.ReadRequest(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, txn)
@@ -78,6 +79,7 @@ func TestReadCoils(t *testing.T) {
 				readData: []byte(tt.request),
 			}
 			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -120,6 +122,7 @@ func TestReadDiscreteInputs(t *testing.T) {
 				readData: []byte(tt.request),
 			}
 			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -162,6 +165,7 @@ func TestReadHoldingRegisters(t *testing.T) {
 				readData: []byte(tt.request),
 			}
 			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -204,6 +208,7 @@ func TestReadInputRegisters(t *testing.T) {
 				readData: []byte(tt.request),
 			}
 			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -246,6 +251,7 @@ func TestWriteSingleCoil(t *testing.T) {
 				readData: []byte(tt.request),
 			}
 			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -288,6 +294,7 @@ func TestWriteSingleRegister(t *testing.T) {
 				readData: []byte(tt.request),
 			}
 			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -330,6 +337,7 @@ func TestWriteMultipleCoils(t *testing.T) {
 				readData: []byte(tt.request),
 			}
 			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -372,6 +380,7 @@ func TestWriteMultipleRegisters(t *testing.T) {
 				readData: []byte(tt.request),
 			}
 			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -437,6 +446,7 @@ func TestReadCoils_DisjoinedReads(t *testing.T) {
 				reads: tt.requests,
 			}
 			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
 			if tt.readError != nil {
 				assert.Error(t, err)
@@ -454,6 +464,72 @@ func TestReadCoils_DisjoinedReads(t *testing.T) {
 	}
 }
 
+func TestWriteMultipleRegisters_DisjoinedReads(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	tests := []struct {
+		name      string
+		requests  [][]byte
+		readError error
+	}{
+		{
+			name:     "SingleRead",
+			requests: [][]byte{{0x04, 0x10, 0x00, 0x00, 0x00, 0x02, 0x04, 0x00, 0x04, 0x00, 0x02, 0x22, 0x63}},
+		},
+		{
+			name:     "OneBytePerRead",
+			requests: [][]byte{{0x04}, {0x10}, {0x00}, {0x00}, {0x00}, {0x02}, {0x04}, {0x00}, {0x04}, {0x00}, {0x02}, {0x22}, {0x63}},
+		},
+		{
+			name:     "TwoBytesPerRead",
+			requests: [][]byte{{0x04, 0x10}, {0x00, 0x00}, {0x00, 0x02}, {0x04, 0x00}, {0x04, 0x00}, {0x02, 0x22}, {0x63}},
+		},
+		{
+			name:     "ThreeBytesPerRead",
+			requests: [][]byte{{0x04, 0x10, 0x00}, {0x00, 0x00, 0x02}, {0x04, 0x00, 0x04}, {0x00, 0x02, 0x22}, {0x63}},
+		},
+		{
+			name:     "FourBytesPerRead",
+			requests: [][]byte{{0x04, 0x10, 0x00, 0x00}, {0x00, 0x02, 0x04, 0x00}, {0x04, 0x00, 0x02, 0x22}, {0x63}},
+		},
+		{
+			name:     "ExtraBytesOnTheEnd",
+			requests: [][]byte{{0x04, 0x10, 0x00}, {0x00, 0x00, 0x02}, {0x04, 0x00, 0x04}, {0x00, 0x02, 0x22}, {0x63, 0x04, 0x10}},
+		},
+		{
+			name:     "ExtraBytesAtTheStart",
+			requests: [][]byte{{0x5B, 0x00, 0x04}, {0x10, 0x00, 0x00}, {0x00, 0x02, 0x04}, {0x00, 0x04, 0x00}, {0x02, 0x22, 0x63}},
+		},
+		{
+			name:     "ExtraBytesAtTheStart2",
+			requests: [][]byte{{0x5B, 0x00, 0x04, 0x10, 0x00, 0x00}, {0x00, 0x02, 0x04, 0x00, 0x04, 0x00, 0x02, 0x22, 0x63}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			port := &rtuSerialPort{
+				reads: tt.requests,
+			}
+			tp := NewModbusServerTransport(port, logger, 0x04)
+			defer tp.Close()
+			txn, err := tp.ReadRequest(ctx)
+			if tt.readError != nil {
+				assert.Error(t, err)
+				assert.Nil(t, txn)
+				return
+			}
+			assert.NoError(t, err)
+			assert.NotNil(t, txn)
+			assert.Equal(t, uint16(0x04), txn.Header().(transport.SerialHeader).Address())
+			assert.Equal(t, data.WriteMultipleRegisters, txn.PDU().FunctionCode())
+			assert.Equal(t, uint16(0x00), txn.PDU().Operation().(*data.WriteMultipleRegistersRequest).Offset())
+			assert.Equal(t, []uint16{0x0004, 0x0002}, txn.PDU().Operation().(*data.WriteMultipleRegistersRequest).Values())
+			assert.Equal(t, transport.ErrorCheck([]byte{0x22, 0x63}), txn.Checksum())
+		})
+	}
+}
+
 func TestBigBlobOfBytes(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	request, err := hex.DecodeString("5B10008C00FFA700510000003B001E001E0000000000000000DA445B10008C000D1A000000000003004E00510000003B001E001E0000000000000000DA445B10008C000D1A000000000003004E00510000003B001E001E0000000000000000DA445B10008C000D1A000000000003004E00510000003B001E001E0000000000000000DA445B10008C000D1A000000000003004E00510000003B001E001E0000000000000000DA445B10008C000D1A000000000003004E00510000003B001E001E00")
@@ -463,6 +539,7 @@ func TestBigBlobOfBytes(t *testing.T) {
 		reads: [][]byte{request},
 	}
 	tp := NewModbusServerTransport(port, logger, 0x5B)
+	defer tp.Close()
 	txn, err := tp.ReadRequest(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, txn)

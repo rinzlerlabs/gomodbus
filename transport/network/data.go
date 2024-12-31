@@ -41,9 +41,9 @@ func (h header) Bytes() []byte {
 }
 
 func (header header) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
-	encoder.AddString("TransactionID", transport.EncodeToString(header.transactionid))
-	encoder.AddString("ProtocolID", transport.EncodeToString(header.protocolid))
-	encoder.AddString("UnitID", transport.EncodeToString([]byte{header.unitid}))
+	encoder.AddString("TransactionID", common.EncodeToString(header.transactionid))
+	encoder.AddString("ProtocolID", common.EncodeToString(header.protocolid))
+	encoder.AddString("UnitID", common.EncodeToString([]byte{header.unitid}))
 	return nil
 }
 
@@ -53,9 +53,9 @@ type modbusApplicationDataUnit struct {
 }
 
 func (m modbusApplicationDataUnit) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
-	encoder.AddString("ProtocolID", transport.EncodeToString(m.header.ProtocolID()))
-	encoder.AddString("TransactionID", transport.EncodeToString(m.header.TransactionID()))
-	encoder.AddString("UnitID", transport.EncodeToString([]byte{m.header.UnitID()}))
+	encoder.AddString("ProtocolID", common.EncodeToString(m.header.ProtocolID()))
+	encoder.AddString("TransactionID", common.EncodeToString(m.header.TransactionID()))
+	encoder.AddString("UnitID", common.EncodeToString([]byte{m.header.UnitID()}))
 	encoder.AddObject("PDU", m.pdu)
 	return nil
 }

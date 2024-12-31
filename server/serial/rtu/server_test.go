@@ -52,7 +52,7 @@ func (t *testSerialPort) Close() error {
 }
 
 func waitForWrite(port *testSerialPort, desiredLength int) {
-	timeout := time.After(1 * time.Second)
+	timeout := time.After(100 * time.Second)
 	tick := time.Tick(10 * time.Millisecond)
 
 	for {

@@ -29,8 +29,8 @@ func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverI
 			logger.Error("Failed to open serial port", zap.Error(err))
 			return nil, err
 		}
-		internalPort := newRTUSerialPort(port)
-		return rtu.NewModbusServerTransport(internalPort, logger, serverId), nil
+		// internalPort := newRTUSerialPort(port)
+		return rtu.NewModbusServerTransport(port, logger, serverId), nil
 	}
 	return serial.NewModbusSerialServerWithCreator(logger, settings, serverId, handler, transportCreator)
 }

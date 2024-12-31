@@ -56,7 +56,7 @@ func (m *modbusTCPSocketTransport) readRawFrame(context.Context) ([]byte, error)
 		return nil, err
 	}
 	data = data[:n]
-	m.logger.Debug("Received data from TCP socket", zap.String("data", transport.EncodeToString(data)))
+	m.logger.Debug("Received data from TCP socket", zap.String("data", common.EncodeToString(data)))
 	return data, nil
 }
 
@@ -146,7 +146,7 @@ func (m *modbusTCPSocketTransport) WriteResponseFrame(header transport.Header, p
 func (m *modbusTCPSocketTransport) write(p []byte) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.logger.Debug("Writing data to TCP socket", zap.String("data", transport.EncodeToString(p)))
+	m.logger.Debug("Writing data to TCP socket", zap.String("data", common.EncodeToString(p)))
 	n, err := m.conn.Write(p)
 	if err != nil {
 		return 0, err

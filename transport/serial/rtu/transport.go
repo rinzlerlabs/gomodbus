@@ -3,10 +3,9 @@ package rtu
 import (
 	"bufio"
 	"context"
-	"encoding/hex"
 	"io"
-	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/rinzlerlabs/gomodbus/common"
@@ -50,7 +49,6 @@ func NewModbusClientTransport(stream io.ReadWriteCloser, logger *zap.Logger, res
 func (t *modbusRTUTransport) readWithTimeout(ctx context.Context, timeout time.Duration, bytes []byte, pos int) (int, error) {
 	dataChan := make(chan int)
 	errChan := make(chan error)
-
 	go func() {
 		read := 0
 		for read < len(bytes) {
@@ -61,6 +59,9 @@ func (t *modbusRTUTransport) readWithTimeout(ctx context.Context, timeout time.D
 				return
 			default:
 				n, err := t.stream.Read(d)
+				if err == syscall.EWOULDBLOCK {
+					continue
+				}
 				if err != nil {
 					errChan <- err
 					return
@@ -69,10 +70,12 @@ func (t *modbusRTUTransport) readWithTimeout(ctx context.Context, timeout time.D
 				read += n
 				if read == len(bytes) {
 					dataChan <- read
+					return
 				}
 			}
 		}
 	}()
+
 	select {
 	case <-ctx.Done():
 		return 0, ctx.Err()
@@ -94,7 +97,7 @@ start:
 	// We need, at a minimum, 2 bytes to read the address and function code, then we can read more
 	read, err := t.readWithTimeout(ctx, t.responseTimeout, bytes[read:read+2], read)
 	if err != nil {
-		t.logger.Debug("Failed to read header bytes", zap.Error(err))
+		t.logger.Warn("Failed to read header bytes", zap.Error(err))
 		return nil, err
 	}
 	// This is a bit of a cheat, basically, if the first byte we read isn't our address, it is almost certainly not the start of a packet
@@ -109,52 +112,51 @@ start:
 		// All of these functions are exactly 8 bytes long
 		read, err = t.readWithTimeout(ctx, t.responseTimeout, bytes[read:8], read)
 		if err != nil {
-			t.logger.Debug("Failed to read body bytes", zap.Error(err))
+			t.logger.Warn("Failed to read body bytes", zap.Error(err))
 			return nil, err
 		}
-		t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
 	case data.WriteMultipleCoils, data.WriteMultipleRegisters:
 		// These functions have a variable length, so we need to read the length byte
 		read, err = t.readWithTimeout(ctx, t.responseTimeout, bytes[read:7], read)
 		if err != nil {
-			t.logger.Debug("Failed to read body bytes", zap.Error(err))
+			t.logger.Warn("Failed to read body bytes", zap.Error(err))
 			return nil, err
 		}
 		byteCount := int(bytes[6])
 		if functionCode == data.WriteMultipleRegisters {
 			// The byte count must be an even number
 			if byteCount%2 != 0 {
-				t.logger.Debug("Invalid byte count for WriteMultipleRegisters, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))
+				t.logger.Warn("Invalid byte count for WriteMultipleRegisters, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))
 				goto start
 			}
 			registerCount := uint16(bytes[4])<<8 | uint16(bytes[5])
 			// The byte count must be twice the register count
 			if byteCount != int(registerCount*2) {
-				t.logger.Debug("Invalid byte count for WriteMultipleRegisters, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))
+				t.logger.Warn("Invalid byte count for WriteMultipleRegisters, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))
 				goto start
 			}
 		} else if functionCode == data.WriteMultipleCoils {
 			registerCount := uint16(bytes[4])<<8 | uint16(bytes[5])
 			if byteCount != int(registerCount/8) {
-				t.logger.Debug("Invalid byte count for WriteMultipleCoils, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))
+				t.logger.Warn("Invalid byte count for WriteMultipleCoils, this usually indicates a corrupt packet", zap.Int("byteCount", byteCount))
 				goto start
 			}
 		}
-		// 1 for address, 1 for function code, 2 for starting address, 2 for quantity, 1 for byte count, 2 for CRC which is 9 bytes
+		// 1 for address, 1 for function code, 2 for starting address, 2 for quantity, 1 for byte count, which is 7 bytes
+		// next add 2 more for the CRC
 		// So we read the byteCount + 9 bytes
-		bytesNeeded := byteCount + 9
+		bytesNeeded := byteCount + 7 + 2
 		read, err = t.readWithTimeout(ctx, t.responseTimeout, bytes[read:bytesNeeded], read)
 		if err != nil {
-			t.logger.Debug("Failed to read body bytes", zap.Error(err))
+			t.logger.Warn("Failed to read body bytes", zap.Error(err))
 			return nil, err
 		}
-		t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
 	default:
 		// This likely means we have a timing error, so we discard the packet
 		t.logger.Debug("Unsupported function code", zap.Uint8("functionCode", uint8(functionCode)))
 		goto start
 	}
-	t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
+	t.logger.Debug("Raw Frame", zap.String("bytes", common.EncodeToString(bytes[:read])))
 	return ParseModbusRequestFrame(bytes[:read])
 }
 
@@ -166,6 +168,7 @@ func (t *modbusRTUTransport) ReadResponse(ctx context.Context, request transport
 	// We need, at a minimum, 2 bytes to read the address and function code, then we can read more
 	read, err := t.readWithTimeout(ctx, t.responseTimeout, bytes[read:read+2], read)
 	if err != nil {
+		t.logger.Warn("Failed to read body bytes", zap.Error(err))
 		return nil, err
 	}
 	functionCode := data.FunctionCode(bytes[1])
@@ -175,36 +178,41 @@ func (t *modbusRTUTransport) ReadResponse(ctx context.Context, request transport
 		// The length byte is the 3rd byte
 		read, err = t.readWithTimeout(ctx, t.responseTimeout, bytes[read:read+1], read)
 		if err != nil {
+			t.logger.Warn("Failed to read body bytes", zap.Error(err))
 			return nil, err
 		}
 
 		length := int(bytes[2])
 		bytesNeeded := length + 5
 		if bytesNeeded > 256 {
-			t.logger.Warn("Request indicates it needs more than 256 bytes, this is likely a corrupt packet")
+			t.logger.Warn("Request indicates it needs more than 256 bytes, this is likely a corrupt packet", zap.Int("bytesNeeded", bytesNeeded), zap.String("bytes", common.EncodeToString(bytes[:read])))
 			return nil, common.ErrInvalidPacket
 		}
 		// 3 for the bytes we already read, 2 for the CRC which is 5 bytes
 		read, err = t.readWithTimeout(ctx, t.responseTimeout, bytes[read:bytesNeeded], read)
 		if err != nil {
+			t.logger.Warn("Failed to read body bytes", zap.Error(err))
 			return nil, err
 		}
 	case data.WriteSingleCoil, data.WriteSingleRegister, data.WriteMultipleCoils, data.WriteMultipleRegisters:
 		// These functions are exactly 8 bytes long
 		read, err = t.readWithTimeout(ctx, t.responseTimeout, bytes[read:8], read)
 		if err != nil {
+			t.logger.Warn("Failed to read body bytes", zap.Error(err))
 			return nil, err
 		}
 	case data.ReadCoilsError, data.ReadDiscreteInputsError, data.ReadHoldingRegistersError, data.ReadInputRegistersError, data.WriteSingleCoilError, data.WriteSingleRegisterError, data.WriteMultipleCoilsError, data.WriteMultipleRegistersError:
 		// These functions are exactly 5 bytes long
 		read, err = t.readWithTimeout(ctx, t.responseTimeout, bytes[read:5], read)
 		if err != nil {
+			t.logger.Warn("Failed to read body bytes", zap.Error(err))
 			return nil, err
 		}
 	default:
 		return nil, common.ErrUnsupportedFunctionCode
 	}
-	t.logger.Debug("WireFrame", zap.String("bytes", strings.ToUpper(hex.EncodeToString(bytes[:read]))))
+
+	t.logger.Debug("Raw Frame", zap.String("bytes", common.EncodeToString(bytes[:read])))
 
 	if op, ok := request.PDU().Operation().(data.CountableOperation); ok {
 		return ParseModbusResponseFrame(bytes[:read], op.Count())
