@@ -31,4 +31,7 @@ var (
 	ErrGatewayPathUnavailable             = errors.New("gateway path unavailable")
 	ErrGatewayTargetDeviceFailedToRespond = errors.New("gateway target device failed")
 	ErrUnknownException                   = errors.New("unknown exception")
+	ErrURIIsNil                           = errors.New("uri is nil")
+	ErrInvalidScheme                      = errors.New("unsupported scheme")
+	ErrMissingValue                       = errors.New("missing value")
 )

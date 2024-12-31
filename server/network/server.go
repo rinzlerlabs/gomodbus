@@ -5,21 +5,29 @@ import (
 	"errors"
 	"io"
 	"net"
-	"net/url"
 	"sync"
 
 	"github.com/rinzlerlabs/gomodbus/server"
+	settings "github.com/rinzlerlabs/gomodbus/settings/network"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/rinzlerlabs/gomodbus/transport/network"
 	"go.uber.org/zap"
 )
 
-func NewModbusServer(logger *zap.Logger, endpoint string) (server.ModbusServer, error) {
-	handler := server.NewDefaultHandler(logger, server.DefaultCoilCount, server.DefaultDiscreteInputCount, server.DefaultHoldingRegisterCount, server.DefaultInputRegisterCount)
-	return NewModbusServerWithHandler(logger, endpoint, handler)
+func NewModbusServer(logger *zap.Logger, uri string) (server.ModbusServer, error) {
+	settings, err := settings.NewServerSettingsFromURI(uri)
+	if err != nil {
+		return nil, err
+	}
+	return NewModbusServerFromSettings(logger, settings)
 }
 
-func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler server.RequestHandler) (server.ModbusServer, error) {
+func NewModbusServerFromSettings(logger *zap.Logger, serverSettings *settings.ServerSettings) (server.ModbusServer, error) {
+	handler := server.NewDefaultHandler(logger, server.DefaultCoilCount, server.DefaultDiscreteInputCount, server.DefaultHoldingRegisterCount, server.DefaultInputRegisterCount)
+	return NewModbusServerWithHandler(logger, serverSettings, handler)
+}
+
+func NewModbusServerWithHandler(logger *zap.Logger, serverSettings *settings.ServerSettings, handler server.RequestHandler) (server.ModbusServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
@@ -32,7 +40,7 @@ func NewModbusServerWithHandler(logger *zap.Logger, endpoint string, handler ser
 		cancel:       cancel,
 		stats:        server.NewServerStats(),
 		frameBuilder: nil,
-		endpoint:     endpoint,
+		settings:     serverSettings,
 	}, nil
 }
 
@@ -42,7 +50,7 @@ type modbusServer struct {
 	cancel       context.CancelFunc
 	logger       *zap.Logger
 	isRunning    bool
-	endpoint     string
+	settings     *settings.ServerSettings
 	listener     net.Listener
 	frameBuilder transport.FrameBuilder
 	stats        *server.ServerStats
@@ -68,12 +76,7 @@ func (s *modbusServer) Start() error {
 	}
 
 	if s.listener == nil {
-		u, err := url.Parse(s.endpoint)
-		if err != nil {
-			s.logger.Error("Error parsing endpoint", zap.Error(err))
-			return err
-		}
-		listener, err := net.Listen(u.Scheme, u.Host)
+		listener, err := net.Listen(s.settings.Endpoint.Scheme, s.settings.Endpoint.Host)
 		if err != nil {
 			s.logger.Error("Failed to listen", zap.Error(err))
 			return err

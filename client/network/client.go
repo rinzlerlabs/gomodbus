@@ -3,10 +3,10 @@ package network
 import (
 	"context"
 	"net"
-	"net/url"
 	"time"
 
 	"github.com/rinzlerlabs/gomodbus/client"
+	settings "github.com/rinzlerlabs/gomodbus/settings/network"
 	transport "github.com/rinzlerlabs/gomodbus/transport/network"
 	"go.uber.org/zap"
 )
@@ -16,22 +16,18 @@ func NewModbusClient(logger *zap.Logger, uri string) (client.ModbusClient, error
 }
 
 func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, uri string) (client.ModbusClient, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return nil, err
-	}
-	settings, err := NewClientSettingsFromURI(u)
+	settings, err := settings.NewClientSettingsFromURI(uri)
 	if err != nil {
 		return nil, err
 	}
 	return NewModbusClientFromSettingsWithContext(ctx, logger, settings)
 }
 
-func NewModbusClientFromSettings(logger *zap.Logger, settings *ClientSettings) (client.ModbusClient, error) {
+func NewModbusClientFromSettings(logger *zap.Logger, settings *settings.ClientSettings) (client.ModbusClient, error) {
 	return NewModbusClientFromSettingsWithContext(context.Background(), logger, settings)
 }
 
-func NewModbusClientFromSettingsWithContext(ctx context.Context, logger *zap.Logger, settings *ClientSettings) (client.ModbusClient, error) {
+func NewModbusClientFromSettingsWithContext(ctx context.Context, logger *zap.Logger, settings *settings.ClientSettings) (client.ModbusClient, error) {
 	dialer := net.Dialer{
 		Timeout:   settings.DialTimeout,
 		KeepAlive: settings.KeepAlive,

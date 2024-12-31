@@ -11,8 +11,8 @@ func main() {
 		panic(err)
 	}
 
-	uri := "rtu:///dev/ttyUSB0?baud=19200&dataBits=8&parity=N&stopBits=1&responseTimeout=1s"
-	modbusClient, err := rtu.NewModbusClientFromURI(logger, uri)
+	url := "rtu:///dev/ttyUSB0?baud=19200&dataBits=8&parity=N&stopBits=1&responseTimeout=1s"
+	modbusClient, err := rtu.NewModbusClient(logger, url)
 	if err != nil {
 		logger.Error("Failed to create modbus client", zap.Error(err))
 		return

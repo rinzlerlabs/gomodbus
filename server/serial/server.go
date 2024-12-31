@@ -6,9 +6,9 @@ import (
 	"io"
 	"sync"
 
-	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/server"
+	settings "github.com/rinzlerlabs/gomodbus/settings/serial"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"go.uber.org/zap"
 )
@@ -18,7 +18,7 @@ type ModbusSerialServer interface {
 	Handler() server.RequestHandler
 }
 
-func NewModbusSerialServerWithCreator(logger *zap.Logger, serialSettings *sp.Config, serverAddress uint16, handler server.RequestHandler, transportCreator func() (transport.Transport, error)) (ModbusSerialServer, error) {
+func NewModbusSerialServerWithCreator(logger *zap.Logger, serverSettings *settings.ServerSettings, handler server.RequestHandler, transportCreator func() (transport.Transport, error)) (ModbusSerialServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
@@ -28,26 +28,25 @@ func NewModbusSerialServerWithCreator(logger *zap.Logger, serialSettings *sp.Con
 		handler:          handler,
 		cancelCtx:        ctx,
 		cancel:           cancel,
-		serialSettings:   serialSettings,
-		address:          serverAddress,
+		serverSettings:   serverSettings,
 		transportCreator: transportCreator,
 		stats:            server.NewServerStats(),
 	}, nil
 }
 
-func NewModbusSerialServerWithTransport(logger *zap.Logger, serverAddress uint16, handler server.RequestHandler, transport transport.Transport) (ModbusSerialServer, error) {
+func NewModbusSerialServerWithTransport(logger *zap.Logger, serverSettings *settings.ServerSettings, handler server.RequestHandler, transport transport.Transport) (ModbusSerialServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &modbusSerialServer{
-		logger:    logger,
-		handler:   handler,
-		cancelCtx: ctx,
-		cancel:    cancel,
-		address:   serverAddress,
-		transport: transport,
-		stats:     server.NewServerStats(),
+		logger:         logger,
+		handler:        handler,
+		cancelCtx:      ctx,
+		cancel:         cancel,
+		serverSettings: serverSettings,
+		transport:      transport,
+		stats:          server.NewServerStats(),
 	}, nil
 }
 
@@ -57,8 +56,7 @@ type modbusSerialServer struct {
 	cancel           context.CancelFunc
 	logger           *zap.Logger
 	mu               sync.Mutex
-	address          uint16
-	serialSettings   *sp.Config
+	serverSettings   *settings.ServerSettings
 	transportCreator func() (transport.Transport, error)
 	transport        transport.Transport
 	isRunning        bool
@@ -175,7 +173,7 @@ func (s *modbusSerialServer) acceptAndValidateTransaction() (transport.Applicati
 		return txn, err
 	}
 
-	if txn.Header().(transport.SerialHeader).Address() != s.address {
+	if txn.Header().(transport.SerialHeader).Address() != s.serverSettings.Address {
 		return nil, common.ErrNotOurAddress
 	}
 	return txn, nil

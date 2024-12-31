@@ -1,10 +1,10 @@
 package network
 
 import (
-	"net/url"
 	"testing"
 	"time"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,12 +22,12 @@ func TestNewClientSettings(t *testing.T) {
 		{
 			name: "nil uri",
 			uri:  "",
-			err:  ErrURIIsNil,
+			err:  common.ErrURIIsNil,
 		},
 		{
 			name: "wrong transport",
 			uri:  "ascii://:502",
-			err:  ErrInvalidScheme,
+			err:  common.ErrInvalidScheme,
 		},
 		{
 			name:            "Default values",
@@ -52,15 +52,7 @@ func TestNewClientSettings(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var u *url.URL
-			var err error
-			if tt.uri == "" {
-				u = nil
-			} else {
-				u, err = url.Parse(tt.uri)
-			}
-			assert.NoError(t, err)
-			settings, err := NewClientSettingsFromURI(u)
+			settings, err := NewClientSettingsFromURI(tt.uri)
 			if err != nil {
 				assert.ErrorIs(t, err, tt.err)
 				assert.Nil(t, settings)

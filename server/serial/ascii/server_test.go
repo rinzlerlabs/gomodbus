@@ -10,6 +10,7 @@ import (
 
 	"github.com/rinzlerlabs/gomodbus/server"
 	"github.com/rinzlerlabs/gomodbus/server/serial"
+	settings "github.com/rinzlerlabs/gomodbus/settings/serial"
 	"github.com/rinzlerlabs/gomodbus/transport/serial/ascii"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -22,7 +23,11 @@ func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, s
 		return nil, errors.New("handler is required")
 	}
 
-	return serial.NewModbusSerialServerWithTransport(logger, serverAddress, handler, ascii.NewModbusServerTransport(stream, logger))
+	settings := &settings.ServerSettings{
+		Address: serverAddress,
+	}
+
+	return serial.NewModbusSerialServerWithTransport(logger, settings, handler, ascii.NewModbusServerTransport(stream, logger))
 }
 
 type testSerialPort struct {

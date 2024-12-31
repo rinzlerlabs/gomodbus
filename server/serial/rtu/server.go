@@ -8,31 +8,40 @@ import (
 	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/server"
 	"github.com/rinzlerlabs/gomodbus/server/serial"
+	settings "github.com/rinzlerlabs/gomodbus/settings/serial"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"go.uber.org/zap"
 )
 
-func NewModbusServer(logger *zap.Logger, settings *sp.Config, serverId uint16, responseTimeout time.Duration) (server.ModbusServer, error) {
-	handler := server.NewDefaultHandler(logger, server.DefaultCoilCount, server.DefaultDiscreteInputCount, server.DefaultHoldingRegisterCount, server.DefaultInputRegisterCount)
-	return NewModbusServerWithHandler(logger, settings, serverId, responseTimeout, handler)
+func NewModbusServer(logger *zap.Logger, uri string) (server.ModbusServer, error) {
+	settings, err := settings.NewServerSettingsFromURI(uri)
+	if err != nil {
+		return nil, err
+	}
+	return NewModbusServerFromSettings(logger, settings)
 }
 
-func NewModbusServerWithHandler(logger *zap.Logger, settings *sp.Config, serverId uint16, responseTimeout time.Duration, handler server.RequestHandler) (server.ModbusServer, error) {
+func NewModbusServerFromSettings(logger *zap.Logger, serverSettings *settings.ServerSettings) (server.ModbusServer, error) {
+	handler := server.NewDefaultHandler(logger, server.DefaultCoilCount, server.DefaultDiscreteInputCount, server.DefaultHoldingRegisterCount, server.DefaultInputRegisterCount)
+	return NewModbusServerWithHandler(logger, serverSettings, handler)
+}
+
+func NewModbusServerWithHandler(logger *zap.Logger, serverSettings *settings.ServerSettings, handler server.RequestHandler) (server.ModbusServer, error) {
 	if handler == nil {
 		return nil, errors.New("handler is required")
 	}
 
 	transportCreator := func() (transport.Transport, error) {
-		port, err := sp.Open(settings)
+		port, err := sp.Open(serverSettings.GetSerialPortConfig())
 		if err != nil {
 			logger.Error("Failed to open serial port", zap.Error(err))
 			return nil, err
 		}
-		// internalPort := newRTUSerialPort(port)
-		return rtu.NewModbusServerTransport(port, logger, serverId), nil
+		internalPort := newRTUSerialPort(port)
+		return rtu.NewModbusServerTransport(internalPort, logger, serverSettings.Address), nil
 	}
-	return serial.NewModbusSerialServerWithCreator(logger, settings, serverId, handler, transportCreator)
+	return serial.NewModbusSerialServerWithCreator(logger, serverSettings, handler, transportCreator)
 }
 
 func newRTUSerialPort(port io.ReadWriteCloser) *rtuSerialPort {

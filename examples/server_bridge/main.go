@@ -3,12 +3,12 @@ package main
 import (
 	"os"
 	"os/signal"
-	"time"
 
-	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/server"
 	network "github.com/rinzlerlabs/gomodbus/server/network"
 	rtu "github.com/rinzlerlabs/gomodbus/server/serial/rtu"
+	network_settings "github.com/rinzlerlabs/gomodbus/settings/network"
+	serial_settings "github.com/rinzlerlabs/gomodbus/settings/serial"
 	"go.uber.org/zap"
 )
 
@@ -22,17 +22,14 @@ func main() {
 
 	handler := server.NewDefaultHandler(logger, 65535, 65535, 65535, 65535) // Create a shared handler for the 2 servers we are going to run
 
-	// Open the serial port for the RTU server
-	serialSettings := &sp.Config{
-		Address:  "/dev/ttyUSB0",
-		BaudRate: 19200,
-		DataBits: 8,
-		Parity:   "N",
-		StopBits: 2,
+	uri := "rtu:///dev/ttyUSB0?baud=19200&dataBits=8&parity=N&stopBits=2&address=91"
+	rtu_settings, err := serial_settings.NewServerSettingsFromURI(uri)
+	if err != nil {
+		logger.Error("Failed to create server settings", zap.Error(err))
+		return
 	}
-
 	// Create the RTU server
-	one, err := rtu.NewModbusServerWithHandler(logger, serialSettings, 91, 1*time.Second, handler)
+	one, err := rtu.NewModbusServerWithHandler(logger, rtu_settings, handler)
 	if err != nil {
 		logger.Error("Failed to create RTU server", zap.Error(err))
 		return
@@ -45,7 +42,13 @@ func main() {
 	defer one.Close() // Make sure we close it when we're done
 
 	// Create the TCP server
-	two, err := network.NewModbusServerWithHandler(logger, "tcp://:8502", handler)
+	uri = "tcp://:8502"
+	tcp_settings, err := network_settings.NewServerSettingsFromURI(uri)
+	if err != nil {
+		logger.Error("Failed to create server settings", zap.Error(err))
+		return
+	}
+	two, err := network.NewModbusServerWithHandler(logger, tcp_settings, handler)
 	if err != nil {
 		logger.Error("Failed to create TCP server", zap.Error(err))
 		return

@@ -2,11 +2,10 @@ package rtu
 
 import (
 	"context"
-	"net/url"
 
 	sp "github.com/goburrow/serial"
 	"github.com/rinzlerlabs/gomodbus/client"
-	"github.com/rinzlerlabs/gomodbus/client/serial"
+	settings "github.com/rinzlerlabs/gomodbus/settings/serial"
 	"github.com/rinzlerlabs/gomodbus/transport/serial/rtu"
 	"go.uber.org/zap"
 )
@@ -16,27 +15,23 @@ func NewModbusClient(logger *zap.Logger, uri string) (client.ModbusClient, error
 }
 
 func NewModbusClientWithContext(ctx context.Context, logger *zap.Logger, uri string) (client.ModbusClient, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return nil, err
-	}
-	settings, err := serial.NewClientSettingsFromURI(u)
+	settings, err := settings.NewClientSettingsFromURI(uri)
 	if err != nil {
 		return nil, err
 	}
 	return NewModbusClientFromSettingsWithContext(ctx, logger, settings)
 }
 
-func NewModbusClientFromSettings(logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
+func NewModbusClientFromSettings(logger *zap.Logger, settings *settings.ClientSettings) (client.ModbusClient, error) {
 	return NewModbusClientFromSettingsWithContext(context.Background(), logger, settings)
 }
 
-func NewModbusClientFromSettingsWithContext(ctx context.Context, logger *zap.Logger, settings *serial.ClientSettings) (client.ModbusClient, error) {
-	config := settings.SerialSettings().ToPortConfig()
+func NewModbusClientFromSettingsWithContext(ctx context.Context, logger *zap.Logger, settings *settings.ClientSettings) (client.ModbusClient, error) {
+	config := settings.GetSerialPortConfig()
 	port, err := sp.Open(config)
 	if err != nil {
 		return nil, err
 	}
-	t := rtu.NewModbusClientTransport(port, logger, settings.ResponseTimeout())
+	t := rtu.NewModbusClientTransport(port, logger, settings.ResponseTimeout)
 	return client.NewModbusClient(ctx, logger, t), nil
 }

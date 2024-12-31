@@ -1,9 +1,9 @@
 package serial
 
 import (
-	"net/url"
 	"testing"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,19 +15,19 @@ func TestNewClientSettings(t *testing.T) {
 		dataBits int
 		parity   string
 		stopBits int
-		scheme   serialTransport
+		scheme   SerialTransport
 		device   string
 		err      error
 	}{
 		{
 			name: "nil uri",
 			uri:  "",
-			err:  ErrURIIsNil,
+			err:  common.ErrURIIsNil,
 		},
 		{
 			name: "wrong transport",
 			uri:  "tcp://:502",
-			err:  ErrInvalidScheme,
+			err:  common.ErrInvalidScheme,
 		},
 		{
 			name:   "missing baud rate",
@@ -100,15 +100,7 @@ func TestNewClientSettings(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var u *url.URL
-			var err error
-			if tt.uri == "" {
-				u = nil
-			} else {
-				u, err = url.Parse(tt.uri)
-			}
-			assert.NoError(t, err)
-			settings, err := NewClientSettingsFromURI(u)
+			settings, err := NewClientSettingsFromURI(tt.uri)
 			if err != nil {
 				assert.ErrorIs(t, err, tt.err)
 				assert.Nil(t, settings)
@@ -117,22 +109,22 @@ func TestNewClientSettings(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, settings)
 				if tt.device != "" {
-					assert.Equal(t, tt.device, settings.serialSettings.Device)
+					assert.Equal(t, tt.device, settings.Device)
 				}
 				if tt.baud != 0 {
-					assert.Equal(t, tt.baud, settings.serialSettings.Baud)
+					assert.Equal(t, tt.baud, settings.Baud)
 				}
 				if tt.dataBits != 0 {
-					assert.Equal(t, tt.dataBits, settings.serialSettings.DataBits)
+					assert.Equal(t, tt.dataBits, settings.DataBits)
 				}
 				if tt.parity != "" {
-					assert.Equal(t, tt.parity, settings.serialSettings.Parity)
+					assert.Equal(t, tt.parity, settings.Parity)
 				}
 				if tt.stopBits != 0 {
-					assert.Equal(t, tt.stopBits, settings.serialSettings.StopBits)
+					assert.Equal(t, tt.stopBits, settings.StopBits)
 				}
 				if tt.scheme != "" {
-					assert.Equal(t, tt.scheme, settings.serialSettings.Transport)
+					assert.Equal(t, tt.scheme, settings.Transport)
 				}
 			}
 		})
@@ -147,19 +139,19 @@ func TestParseSerialSettingsFromUrl(t *testing.T) {
 		dataBits int
 		parity   string
 		stopBits int
-		scheme   serialTransport
+		scheme   SerialTransport
 		device   string
 		err      error
 	}{
 		{
 			name: "nil uri",
 			uri:  "",
-			err:  ErrURIIsNil,
+			err:  common.ErrURIIsNil,
 		},
 		{
 			name: "wrong transport",
 			uri:  "tcp://:502",
-			err:  ErrInvalidScheme,
+			err:  common.ErrInvalidScheme,
 		},
 		{
 			name:   "missing baud rate",
@@ -232,15 +224,7 @@ func TestParseSerialSettingsFromUrl(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var u *url.URL
-			var err error
-			if tt.uri == "" {
-				u = nil
-			} else {
-				u, err = url.Parse(tt.uri)
-			}
-			assert.NoError(t, err)
-			settings, err := parseSerialSettingsFromUrl(u)
+			settings, err := NewClientSettingsFromURI(tt.uri)
 			if err != nil {
 				assert.ErrorIs(t, err, tt.err)
 				assert.Nil(t, settings)

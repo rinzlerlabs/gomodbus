@@ -3,11 +3,8 @@ package main
 import (
 	"os"
 	"os/signal"
-	"time"
 
-	sp "github.com/goburrow/serial"
 	rtu "github.com/rinzlerlabs/gomodbus/server/serial/rtu"
-
 	"go.uber.org/zap"
 )
 
@@ -16,14 +13,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	settings := &sp.Config{
-		Address:  "/dev/ttyUSB0",
-		BaudRate: 19200,
-		DataBits: 8,
-		Parity:   "N",
-		StopBits: 2,
-	}
-	server, err := rtu.NewModbusServer(logger, settings, 91, 1*time.Second)
+	url := "rtu:///dev/ttyUSB0?baud=19200&dataBits=8&parity=N&stopBits=2&address=91"
+	server, err := rtu.NewModbusServer(logger, url)
 	if err != nil {
 		panic(err)
 	}
