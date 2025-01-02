@@ -2,7 +2,6 @@ package serial
 
 import (
 	"context"
-	"errors"
 	"io"
 	"sync"
 
@@ -18,25 +17,12 @@ type ModbusSerialServer interface {
 	Handler() server.RequestHandler
 }
 
-func NewModbusSerialServerWithCreator(logger *zap.Logger, serverSettings *settings.ServerSettings, handler server.RequestHandler, transportCreator func() (transport.Transport, error)) (ModbusSerialServer, error) {
-	if handler == nil {
-		return nil, errors.New("handler is required")
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	return &modbusSerialServer{
-		logger:           logger,
-		handler:          handler,
-		cancelCtx:        ctx,
-		cancel:           cancel,
-		serverSettings:   serverSettings,
-		transportCreator: transportCreator,
-		stats:            server.NewServerStats(),
-	}, nil
-}
-
 func NewModbusSerialServerWithTransport(logger *zap.Logger, serverSettings *settings.ServerSettings, handler server.RequestHandler, transport transport.Transport) (ModbusSerialServer, error) {
 	if handler == nil {
-		return nil, errors.New("handler is required")
+		return nil, common.ErrHandlerRequired
+	}
+	if transport == nil {
+		return nil, common.ErrTransportRequired
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &modbusSerialServer{

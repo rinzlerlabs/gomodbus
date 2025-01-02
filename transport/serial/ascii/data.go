@@ -2,8 +2,8 @@ package ascii
 
 import (
 	"encoding/hex"
-	"errors"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/rinzlerlabs/gomodbus/transport/serial"
@@ -13,7 +13,7 @@ func NewModbusApplicationDataUnit(header transport.Header, pdu *transport.Protoc
 	if serialHeader, ok := header.(transport.SerialHeader); ok {
 		return serial.NewResponseModbusApplicationDataUnit(serialHeader, pdu, checksummer), nil
 	}
-	return nil, errors.New("invalid header")
+	return nil, common.ErrInvalidHeader
 }
 
 func checksummer(m transport.ApplicationDataUnit) transport.ErrorCheck {

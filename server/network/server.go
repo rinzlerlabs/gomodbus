@@ -2,11 +2,11 @@ package network
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net"
 	"sync"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/server"
 	settings "github.com/rinzlerlabs/gomodbus/settings/network"
 	"github.com/rinzlerlabs/gomodbus/transport"
@@ -29,7 +29,7 @@ func NewModbusServerFromSettings(logger *zap.Logger, serverSettings *settings.Se
 
 func NewModbusServerWithHandler(logger *zap.Logger, serverSettings *settings.ServerSettings, handler server.RequestHandler) (server.ModbusServer, error) {
 	if handler == nil {
-		return nil, errors.New("handler is required")
+		return nil, common.ErrHandlerRequired
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -72,7 +72,7 @@ func (s *modbusServer) Start() error {
 
 	if s.handler == nil {
 		s.logger.Error("Handler is required")
-		return errors.New("handler is required")
+		return common.ErrHandlerRequired
 	}
 
 	if s.listener == nil {
@@ -93,12 +93,22 @@ func (s *modbusServer) Start() error {
 func (s *modbusServer) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	var err error
 	s.logger.Info("Closing Modbus TCP server")
-	err := s.listener.Close()
-	if err != nil {
-		s.logger.Error("Error closing listener", zap.Error(err))
+	if s.listener != nil {
+		err = s.listener.Close()
+		if err != nil {
+			s.logger.Error("Error closing listener", zap.Error(err))
+		}
+	} else {
+		s.logger.Info("Listener is nil, did the server fully start?")
 	}
-	s.cancel()
+	if s.cancel != nil {
+		defer func() { s.cancel = nil }()
+		s.cancel()
+	} else {
+		s.logger.Info("Cancel function is nil, did the server fully start?")
+	}
 	s.logger.Info("Waiting for all clients to disconnect")
 	s.wg.Wait()
 	s.logger.Info("All clients disconnected")

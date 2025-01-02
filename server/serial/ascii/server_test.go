@@ -2,12 +2,12 @@ package ascii
 
 import (
 	"encoding/hex"
-	"errors"
 	"io"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/server"
 	"github.com/rinzlerlabs/gomodbus/server/serial"
 	settings "github.com/rinzlerlabs/gomodbus/settings/serial"
@@ -20,7 +20,7 @@ import (
 // newModbusServerWithHandler creates a new Modbus ASCII server with a io.ReadWriter stream instead of an explicit port, for testing purposes, and a RequestHandler.
 func newModbusServerWithHandler(logger *zap.Logger, stream io.ReadWriteCloser, serverAddress uint16, handler server.RequestHandler) (serial.ModbusSerialServer, error) {
 	if handler == nil {
-		return nil, errors.New("handler is required")
+		return nil, common.ErrHandlerRequired
 	}
 
 	settings := &settings.ServerSettings{

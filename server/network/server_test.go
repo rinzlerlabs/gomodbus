@@ -3,7 +3,6 @@ package network
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/server"
 	settings "github.com/rinzlerlabs/gomodbus/settings/network"
 	"github.com/stretchr/testify/assert"
@@ -22,11 +22,12 @@ import (
 
 func newModbusServerWithHandler(logger *zap.Logger, listener net.Listener, handler server.RequestHandler) (server.ModbusServer, error) {
 	if handler == nil {
-		return nil, errors.New("handler is required")
+		return nil, common.ErrHandlerRequired
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	url, err := url.Parse("tcp://localhost:502")
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	return &modbusServer{

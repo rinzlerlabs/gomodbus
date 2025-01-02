@@ -10,13 +10,6 @@ import (
 	"github.com/rinzlerlabs/gomodbus/common"
 )
 
-var (
-	ErrInvalidBaudRate = errors.New("invalid baud rate")
-	ErrInvalidDataBits = errors.New("invalid data bits")
-	ErrInvalidParity   = errors.New("invalid parity")
-	ErrInvalidStopBits = errors.New("invalid stop bits")
-)
-
 type SerialTransport string
 
 const (
@@ -61,19 +54,19 @@ func (s *SerialSettings) parseValuesFromURI(u *url.URL) error {
 		return common.ErrInvalidScheme
 	}
 	if err := parseIntFieldFromURI(u, "baud", &s.Baud); err != nil {
-		return errors.Join(err, ErrInvalidBaudRate)
+		return errors.Join(err, common.ErrInvalidBaudRate)
 	}
 
 	if err := parseIntFieldFromURI(u, "dataBits", &s.DataBits); err != nil {
-		return errors.Join(err, ErrInvalidDataBits)
+		return errors.Join(err, common.ErrInvalidDataBits)
 	}
 
 	if err := parseStringFieldFromURI(u, "parity", &s.Parity, validParityValues); err != nil {
-		return errors.Join(err, ErrInvalidParity)
+		return errors.Join(err, common.ErrInvalidParity)
 	}
 
 	if err := parseIntFieldFromURI(u, "stopBits", &s.StopBits); err != nil {
-		return errors.Join(err, ErrInvalidStopBits)
+		return errors.Join(err, common.ErrInvalidStopBits)
 	}
 
 	return nil
