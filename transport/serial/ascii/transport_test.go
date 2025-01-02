@@ -3,21 +3,36 @@ package ascii
 import (
 	"context"
 	"io"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/rinzlerlabs/gomodbus/common"
 	"github.com/rinzlerlabs/gomodbus/data"
 	"github.com/rinzlerlabs/gomodbus/transport"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
+
+func newTestSerialPort(readData, writeData []byte) *testSerialPort {
+	return &testSerialPort{
+		readData:  readData,
+		writeData: writeData,
+		closeChan: make(chan struct{}),
+	}
+}
 
 type testSerialPort struct {
 	readData  []byte
 	writeData []byte
+	closeChan chan struct{}
 }
 
 func (t *testSerialPort) Read(b []byte) (n int, err error) {
+	if t.readData == nil {
+		<-t.closeChan
+	}
 	if len(t.readData) == 0 {
 		return 0, io.EOF
 	}
@@ -32,6 +47,7 @@ func (t *testSerialPort) Write(b []byte) (n int, err error) {
 }
 
 func (t *testSerialPort) Close() error {
+	close(t.closeChan)
 	return nil
 }
 
@@ -439,4 +455,25 @@ func TestWriteMultipleRegisters(t *testing.T) {
 			assert.Equal(t, transport.ErrorCheck([]byte{0xE0}), txn.Checksum())
 		})
 	}
+}
+
+func TestRaceOnReadAndClose(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	ctx := context.Background()
+	tp := NewModbusServerTransport(newTestSerialPort(nil, nil), logger)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		req, err := tp.ReadRequest(ctx)
+		logger.Info("ReadRequest", zap.Error(err))
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, io.EOF)
+		assert.Nil(t, req)
+	}()
+
+	time.Sleep(1 * time.Second)
+	err := tp.Close()
+	assert.NoError(t, err)
+	wg.Wait()
 }

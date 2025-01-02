@@ -34,4 +34,5 @@ var (
 	ErrURIIsNil                           = errors.New("uri is nil")
 	ErrInvalidScheme                      = errors.New("unsupported scheme")
 	ErrMissingValue                       = errors.New("missing value")
+	ErrTransportClosing                   = errors.New("transport is closing")
 )

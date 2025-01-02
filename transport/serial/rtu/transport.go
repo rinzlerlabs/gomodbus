@@ -3,6 +3,7 @@ package rtu
 import (
 	"bufio"
 	"context"
+	"errors"
 	"io"
 	"sync"
 	"syscall"
@@ -23,6 +24,7 @@ type modbusRTUTransport struct {
 	reader          *bufio.Reader
 	serverAddr      uint16
 	responseTimeout time.Duration
+	closing         bool
 }
 
 func NewModbusServerTransport(stream io.ReadWriteCloser, logger *zap.Logger, serverAddress uint16) transport.Transport {
@@ -61,6 +63,10 @@ func (t *modbusRTUTransport) readWithTimeout(ctx context.Context, timeout time.D
 				n, err := t.stream.Read(d)
 				if err == syscall.EWOULDBLOCK {
 					continue
+				}
+				if err == io.EOF && t.closing {
+					errChan <- errors.Join(err, common.ErrTransportClosing)
+					return
 				}
 				if err != nil {
 					errChan <- err
@@ -278,8 +284,7 @@ func (t *modbusRTUTransport) Flush(ctx context.Context) error {
 }
 
 func (t *modbusRTUTransport) Close() error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.closing = true
 	stream := t.stream
 	t.stream = nil
 	t.reader = nil

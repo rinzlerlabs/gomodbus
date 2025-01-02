@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"sync"
@@ -25,6 +26,7 @@ type modbusTCPSocketTransport struct {
 	frameBuilder    transport.FrameBuilder
 	headerManager   *headerManager
 	responseTimeout time.Duration
+	closing         bool
 }
 
 func NewModbusServerTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Logger) transport.Transport {
@@ -52,6 +54,9 @@ func (m *modbusTCPSocketTransport) readRawFrame(context.Context) ([]byte, error)
 	m.logger.Debug("Reading data from TCP socket")
 	data := make([]byte, 260)
 	n, err := m.conn.Read(data)
+	if err == io.EOF && m.closing {
+		return nil, errors.Join(err, common.ErrTransportClosing)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -110,10 +115,9 @@ func (m *modbusTCPSocketTransport) ReadResponse(ctx context.Context, request tra
 }
 
 func (m *modbusTCPSocketTransport) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.logger.Debug("Closing TCP socket")
-	return m.conn.Close()
+	m.closing = true
+	return m.conn.Close() // Doing this is going to cause errors to return from the read/write functions
 }
 
 func (m *modbusTCPSocketTransport) Flush(context.Context) error {

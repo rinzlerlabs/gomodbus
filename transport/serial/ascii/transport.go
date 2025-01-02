@@ -3,6 +3,7 @@ package ascii
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -22,6 +23,7 @@ type modbusASCIITransport struct {
 	reader          *bufio.Reader
 	frameBuilder    transport.FrameBuilder
 	responseTimeout time.Duration
+	closing         bool
 }
 
 func NewModbusServerTransport(stream io.ReadWriteCloser, logger *zap.Logger) transport.Transport {
@@ -47,6 +49,9 @@ func (t *modbusASCIITransport) readRawFrame(context.Context) ([]byte, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	str, err := t.reader.ReadString('\n')
+	if err == io.EOF && t.closing {
+		return nil, errors.Join(err, common.ErrTransportClosing)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -133,8 +138,7 @@ func (t *modbusASCIITransport) Flush(ctx context.Context) error {
 }
 
 func (t *modbusASCIITransport) Close() error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.closing = true
 	stream := t.stream
 	t.stream = nil
 	return stream.Close()
