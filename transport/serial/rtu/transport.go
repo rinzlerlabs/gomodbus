@@ -287,13 +287,18 @@ func (t *modbusRTUTransport) Flush(ctx context.Context) error {
 }
 
 func (t *modbusRTUTransport) Close() error {
-	// defer t.wg.Wait()
 	t.closing = true
 	stream := t.stream
 	t.stream = nil
 	t.reader = nil
 	if stream != nil {
-		return stream.Close()
+		err := stream.Close()
+		t.wg.Wait()
+		if err != nil {
+			t.logger.Error("Failed to close stream", zap.Error(err))
+			return err
+		}
 	}
+	t.wg.Wait()
 	return nil
 }

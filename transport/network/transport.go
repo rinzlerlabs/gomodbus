@@ -117,10 +117,11 @@ func (m *modbusTCPSocketTransport) ReadResponse(ctx context.Context, request tra
 }
 
 func (m *modbusTCPSocketTransport) Close() error {
-	defer m.wg.Wait()
 	m.logger.Debug("Closing TCP socket")
 	m.closing = true
-	return m.conn.Close() // Doing this is going to cause errors to return from the read/write functions
+	err := m.conn.Close() // Doing this is going to cause errors to return from the read/write functions
+	m.wg.Wait()
+	return err
 }
 
 func (m *modbusTCPSocketTransport) Flush(context.Context) error {
