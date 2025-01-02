@@ -54,7 +54,7 @@ func (t *modbusRTUTransport) readWithTimeout(ctx context.Context, timeout time.D
 	errChan := make(chan error)
 	t.wg.Add(1)
 	go func() {
-		// defer t.wg.Done()
+		defer t.wg.Done()
 		read := 0
 		for read < len(bytes) {
 			d := make([]byte, len(bytes)-read)
@@ -287,18 +287,13 @@ func (t *modbusRTUTransport) Flush(ctx context.Context) error {
 }
 
 func (t *modbusRTUTransport) Close() error {
+	defer t.wg.Wait()
 	t.closing = true
 	stream := t.stream
 	t.stream = nil
 	t.reader = nil
 	if stream != nil {
-		err := stream.Close()
-		t.wg.Wait()
-		if err != nil {
-			t.logger.Error("Failed to close stream", zap.Error(err))
-			return err
-		}
+		return stream.Close()
 	}
-	t.wg.Wait()
 	return nil
 }
