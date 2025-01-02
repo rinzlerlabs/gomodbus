@@ -11,7 +11,7 @@ func main() {
 		panic(err)
 	}
 
-	uri := "tcp://:502?responseTimeout=10s"
+	uri := "tcp://:8502?responseTimeout=10s"
 	modbusClient, err := network.NewModbusClient(logger, uri)
 	if err != nil {
 		logger.Error("Failed to create modbus client", zap.Error(err))

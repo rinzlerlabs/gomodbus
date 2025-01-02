@@ -49,15 +49,12 @@ func NewModbusClientTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Lo
 	}
 }
 
-func (m *modbusTCPSocketTransport) readRawFrame(context.Context) ([]byte, error) {
+func (m *modbusTCPSocketTransport) readRawFrame() ([]byte, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.logger.Debug("Reading data from TCP socket")
 	data := make([]byte, 260)
 	n, err := m.conn.Read(data)
-	if err == io.EOF && m.closing {
-		return nil, errors.Join(err, common.ErrTransportClosing)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -68,12 +65,17 @@ func (m *modbusTCPSocketTransport) readRawFrame(context.Context) ([]byte, error)
 
 func (m *modbusTCPSocketTransport) ReadRequest(ctx context.Context) (transport.ApplicationDataUnit, error) {
 	m.logger.Debug("Accepting request from TCP socket", zap.String("remoteAddr", m.conn.RemoteAddr().String()))
-	dataChan := make(chan transport.ApplicationDataUnit)
-	errChan := make(chan error)
+	dataChan := make(chan transport.ApplicationDataUnit, 1)
+	errChan := make(chan error, 1)
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
-		data, err := m.readRequestFrame(ctx)
+		data, err := m.readRequestFrame()
+		if (errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed)) && m.closing {
+			m.logger.Debug("Socket read error while transport is closing")
+			errChan <- errors.Join(err, common.ErrTransportClosing)
+			return
+		}
 		if err != nil {
 			errChan <- err
 			return
@@ -92,11 +94,16 @@ func (m *modbusTCPSocketTransport) ReadRequest(ctx context.Context) (transport.A
 }
 
 func (m *modbusTCPSocketTransport) ReadResponse(ctx context.Context, request transport.ApplicationDataUnit) (transport.ApplicationDataUnit, error) {
-	dataChan := make(chan transport.ApplicationDataUnit)
-	errChan := make(chan error)
+	dataChan := make(chan transport.ApplicationDataUnit, 1)
+	errChan := make(chan error, 1)
 
 	go func() {
-		data, err := m.readResponseFrame(ctx, request)
+		data, err := m.readResponseFrame(request)
+		if (errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed)) && m.closing {
+			m.logger.Debug("Socket read error while transport is closing")
+			errChan <- errors.Join(err, common.ErrTransportClosing)
+			return
+		}
 		if err != nil {
 			errChan <- err
 			return
@@ -164,16 +171,16 @@ func (m *modbusTCPSocketTransport) write(p []byte) (int, error) {
 	return n, nil
 }
 
-func (t *modbusTCPSocketTransport) readRequestFrame(ctx context.Context) (transport.ApplicationDataUnit, error) {
-	data, err := t.readRawFrame(ctx)
+func (t *modbusTCPSocketTransport) readRequestFrame() (transport.ApplicationDataUnit, error) {
+	data, err := t.readRawFrame()
 	if err != nil {
 		return nil, err
 	}
 	return ParseModbusRequestFrame(data)
 }
 
-func (t *modbusTCPSocketTransport) readResponseFrame(ctx context.Context, request transport.ApplicationDataUnit) (transport.ApplicationDataUnit, error) {
-	bytes, err := t.readRawFrame(ctx)
+func (t *modbusTCPSocketTransport) readResponseFrame(request transport.ApplicationDataUnit) (transport.ApplicationDataUnit, error) {
+	bytes, err := t.readRawFrame()
 	if err != nil {
 		return nil, err
 	}

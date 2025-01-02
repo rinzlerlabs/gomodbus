@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"sync"
 	"syscall"
 	"time"
@@ -50,8 +51,8 @@ func NewModbusClientTransport(stream io.ReadWriteCloser, logger *zap.Logger, res
 }
 
 func (t *modbusRTUTransport) readWithTimeout(ctx context.Context, timeout time.Duration, bytes []byte, pos int) (int, error) {
-	dataChan := make(chan int)
-	errChan := make(chan error)
+	dataChan := make(chan int, 1)
+	errChan := make(chan error, 1)
 	t.wg.Add(1)
 	go func() {
 		defer t.wg.Done()
@@ -67,7 +68,7 @@ func (t *modbusRTUTransport) readWithTimeout(ctx context.Context, timeout time.D
 				if err == syscall.EWOULDBLOCK {
 					continue
 				}
-				if err == io.EOF && t.closing {
+				if (errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed)) && t.closing {
 					errChan <- errors.Join(err, common.ErrTransportClosing)
 					return
 				}

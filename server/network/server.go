@@ -159,15 +159,13 @@ func (s *modbusServer) handleClient(conn net.Conn) {
 		default:
 		}
 		op, err := t.ReadRequest(s.cancelCtx)
-		if err == io.EOF {
-			s.logger.Info("Client disconnected")
-			err := t.Close()
-			if err != nil {
-				s.logger.Error("Failed to close connection", zap.Error(err))
-			}
+		if errors.Is(err, io.EOF) {
+			s.logger.Info("Client disconnected, cleaning up transport and client", zap.String("remote", conn.RemoteAddr().String()), zap.Error(err))
 			return
-		}
-		if err != nil {
+		} else if errors.Is(err, context.Canceled) {
+			s.logger.Debug("Server context canceled, cleaning up transport and client", zap.String("remote", conn.RemoteAddr().String()), zap.Error(err))
+			return
+		} else if err != nil {
 			s.logger.Error("Failed to accept request", zap.Error(err))
 			continue
 		}
