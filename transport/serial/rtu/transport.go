@@ -25,6 +25,7 @@ type modbusRTUTransport struct {
 	serverAddr      uint16
 	responseTimeout time.Duration
 	closing         bool
+	wg              sync.WaitGroup
 }
 
 func NewModbusServerTransport(stream io.ReadWriteCloser, logger *zap.Logger, serverAddress uint16) transport.Transport {
@@ -51,7 +52,9 @@ func NewModbusClientTransport(stream io.ReadWriteCloser, logger *zap.Logger, res
 func (t *modbusRTUTransport) readWithTimeout(ctx context.Context, timeout time.Duration, bytes []byte, pos int) (int, error) {
 	dataChan := make(chan int)
 	errChan := make(chan error)
+	t.wg.Add(1)
 	go func() {
+		// defer t.wg.Done()
 		read := 0
 		for read < len(bytes) {
 			d := make([]byte, len(bytes)-read)
@@ -284,6 +287,7 @@ func (t *modbusRTUTransport) Flush(ctx context.Context) error {
 }
 
 func (t *modbusRTUTransport) Close() error {
+	// defer t.wg.Wait()
 	t.closing = true
 	stream := t.stream
 	t.stream = nil

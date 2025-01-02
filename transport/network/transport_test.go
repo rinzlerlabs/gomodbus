@@ -17,10 +17,9 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func newTestConnection(readData, writeData []byte) *testConnection {
+func newTestConnection(readData []byte) *testConnection {
 	return &testConnection{
 		readData:  readData,
-		writeData: writeData,
 		closeChan: make(chan struct{}),
 	}
 }
@@ -70,9 +69,7 @@ func (a *addr) String() string {
 func TestAcceptRequest(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := context.Background()
-	port := &testConnection{
-		readData: []byte{0x00, 0x02, 0x00, 0x00, 0x00, 0x06, 0x01, 0x01, 0x00, 0x0A, 0x00, 0x0D},
-	}
+	port := newTestConnection([]byte{0x00, 0x02, 0x00, 0x00, 0x00, 0x06, 0x01, 0x01, 0x00, 0x0A, 0x00, 0x0D})
 	tp := NewModbusServerTransport(port, logger)
 	defer tp.Close()
 	txn, err := tp.ReadRequest(ctx)
@@ -109,9 +106,7 @@ func TestReadCoilsRequest(t *testing.T) {
 			ctx := context.Background()
 			d, err := hex.DecodeString(tt.request)
 			assert.NoError(t, err)
-			port := &testConnection{
-				readData: d,
-			}
+			port := newTestConnection(d)
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -156,9 +151,7 @@ func TestReadDiscreteInputsRequest(t *testing.T) {
 			ctx := context.Background()
 			d, err := hex.DecodeString(tt.request)
 			assert.NoError(t, err)
-			port := &testConnection{
-				readData: d,
-			}
+			port := newTestConnection(d)
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -203,9 +196,7 @@ func TestReadHoldingRegistersRequest(t *testing.T) {
 			ctx := context.Background()
 			d, err := hex.DecodeString(tt.request)
 			assert.NoError(t, err)
-			port := &testConnection{
-				readData: d,
-			}
+			port := newTestConnection(d)
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -250,9 +241,7 @@ func TestReadInputRegistersRequest(t *testing.T) {
 			ctx := context.Background()
 			d, err := hex.DecodeString(tt.request)
 			assert.NoError(t, err)
-			port := &testConnection{
-				readData: d,
-			}
+			port := newTestConnection(d)
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -297,9 +286,7 @@ func TestWriteSingleCoilRequest(t *testing.T) {
 			ctx := context.Background()
 			d, err := hex.DecodeString(tt.request)
 			assert.NoError(t, err)
-			port := &testConnection{
-				readData: d,
-			}
+			port := newTestConnection(d)
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -344,9 +331,7 @@ func TestWriteSingleRegisterRequest(t *testing.T) {
 			ctx := context.Background()
 			d, err := hex.DecodeString(tt.request)
 			assert.NoError(t, err)
-			port := &testConnection{
-				readData: d,
-			}
+			port := newTestConnection(d)
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -391,9 +376,7 @@ func TestWriteMultipleCoilsRequest(t *testing.T) {
 			ctx := context.Background()
 			d, err := hex.DecodeString(tt.request)
 			assert.NoError(t, err)
-			port := &testConnection{
-				readData: d,
-			}
+			port := newTestConnection(d)
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -438,9 +421,7 @@ func TestWriteMultipleRegistersRequest(t *testing.T) {
 			ctx := context.Background()
 			d, err := hex.DecodeString(tt.request)
 			assert.NoError(t, err)
-			port := &testConnection{
-				readData: d,
-			}
+			port := newTestConnection(d)
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -465,7 +446,7 @@ func TestWriteMultipleRegistersRequest(t *testing.T) {
 func TestRaceOnReadAndClose(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := context.Background()
-	tp := NewModbusServerTransport(newTestConnection(nil, nil), logger)
+	tp := NewModbusServerTransport(newTestConnection(nil), logger)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {

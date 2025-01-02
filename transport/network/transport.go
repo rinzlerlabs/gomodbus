@@ -27,6 +27,7 @@ type modbusTCPSocketTransport struct {
 	headerManager   *headerManager
 	responseTimeout time.Duration
 	closing         bool
+	wg              sync.WaitGroup
 }
 
 func NewModbusServerTransport(conn ReadWriteCloseRemoteAddresser, logger *zap.Logger) transport.Transport {
@@ -69,8 +70,9 @@ func (m *modbusTCPSocketTransport) ReadRequest(ctx context.Context) (transport.A
 	m.logger.Debug("Accepting request from TCP socket", zap.String("remoteAddr", m.conn.RemoteAddr().String()))
 	dataChan := make(chan transport.ApplicationDataUnit)
 	errChan := make(chan error)
-
+	m.wg.Add(1)
 	go func() {
+		defer m.wg.Done()
 		data, err := m.readRequestFrame(ctx)
 		if err != nil {
 			errChan <- err
@@ -115,6 +117,7 @@ func (m *modbusTCPSocketTransport) ReadResponse(ctx context.Context, request tra
 }
 
 func (m *modbusTCPSocketTransport) Close() error {
+	defer m.wg.Wait()
 	m.logger.Debug("Closing TCP socket")
 	m.closing = true
 	return m.conn.Close() // Doing this is going to cause errors to return from the read/write functions

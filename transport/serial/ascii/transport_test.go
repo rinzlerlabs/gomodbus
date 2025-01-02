@@ -15,10 +15,9 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func newTestSerialPort(readData, writeData []byte) *testSerialPort {
+func newTestSerialPort(readData []byte) *testSerialPort {
 	return &testSerialPort{
 		readData:  readData,
-		writeData: writeData,
 		closeChan: make(chan struct{}),
 	}
 }
@@ -54,9 +53,7 @@ func (t *testSerialPort) Close() error {
 func TestAcceptRequest(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := context.Background()
-	port := &testSerialPort{
-		readData: []byte{0x3A, 0x30, 0x32, 0x30, 0x31, 0x30, 0x30, 0x32, 0x30, 0x30, 0x30, 0x30, 0x43, 0x44, 0x31, 0x0D, 0x0A},
-	}
+	port := newTestSerialPort([]byte{0x3A, 0x30, 0x32, 0x30, 0x31, 0x30, 0x30, 0x32, 0x30, 0x30, 0x30, 0x30, 0x43, 0x44, 0x31, 0x0D, 0x0A})
 	tp := NewModbusServerTransport(port, logger)
 	defer tp.Close()
 	txn, err := tp.ReadRequest(ctx)
@@ -99,9 +96,7 @@ func TestReadCoils(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			port := &testSerialPort{
-				readData: []byte(tt.request),
-			}
+			port := newTestSerialPort([]byte(tt.request))
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -147,9 +142,7 @@ func TestReadDiscreteInputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			port := &testSerialPort{
-				readData: []byte(tt.request),
-			}
+			port := newTestSerialPort([]byte(tt.request))
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -195,9 +188,7 @@ func TestReadHoldingRegisters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			port := &testSerialPort{
-				readData: []byte(tt.request),
-			}
+			port := newTestSerialPort([]byte(tt.request))
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -243,9 +234,7 @@ func TestReadInputRegisters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			port := &testSerialPort{
-				readData: []byte(tt.request),
-			}
+			port := newTestSerialPort([]byte(tt.request))
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -291,9 +280,7 @@ func TestWriteSingleCoil(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			port := &testSerialPort{
-				readData: []byte(tt.request),
-			}
+			port := newTestSerialPort([]byte(tt.request))
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -339,9 +326,7 @@ func TestWriteSingleRegister(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			port := &testSerialPort{
-				readData: []byte(tt.request),
-			}
+			port := newTestSerialPort([]byte(tt.request))
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -387,9 +372,7 @@ func TestWriteMultipleCoils(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			port := &testSerialPort{
-				readData: []byte(tt.request),
-			}
+			port := newTestSerialPort([]byte(tt.request))
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -435,9 +418,7 @@ func TestWriteMultipleRegisters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			port := &testSerialPort{
-				readData: []byte(tt.request),
-			}
+			port := newTestSerialPort([]byte(tt.request))
 			tp := NewModbusServerTransport(port, logger)
 			defer tp.Close()
 			txn, err := tp.ReadRequest(ctx)
@@ -460,7 +441,7 @@ func TestWriteMultipleRegisters(t *testing.T) {
 func TestRaceOnReadAndClose(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := context.Background()
-	tp := NewModbusServerTransport(newTestSerialPort(nil, nil), logger)
+	tp := NewModbusServerTransport(newTestSerialPort(nil), logger)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
