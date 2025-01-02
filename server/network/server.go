@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"sync"
@@ -127,10 +128,15 @@ func (s *modbusServer) run() {
 			return
 		default:
 			conn, err := s.listener.Accept()
-			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
-				continue
-			}
 			if err != nil {
+				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+					s.logger.Debug("Timeout accepting connection, this is more or less expected")
+					continue
+				}
+				if errors.Is(err, net.ErrClosed) {
+					s.logger.Info("Listener closed")
+					return
+				}
 				s.logger.Error("Failed to accept connection", zap.Error(err))
 				continue
 			}
